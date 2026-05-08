@@ -2,6 +2,16 @@ module.exports = {
   version: require('./package.json').version,
   CHANGELOG: [
     {
+      date: '2026-05-08',
+      version: '1.9.0',
+      changes: [
+        'Closes TarGz/TargzPenPlotterCtrl#13 — Settings → GRBL Parameters: add ↑ IMPORT button next to ↓ EXPORT. Reads .txt/.nc/.gcode backup files (same format produced by EXPORT, $N=val with optional trailing ; comment), parses $-keys via importParamsFromText, and populates paramDirty so rows go yellow for review. User clicks APPLY TO CONTROLLER to push. $I= machine-name lines and non-$N keys are skipped. Counter messages distinguish: nothing parsed, all-already-match-controller, and lines-skipped cases.',
+        'Fix TarGz/TargzPenPlotterCtrl#16 — Settings APPLY now joins all dirty $N=val rows into a single newline-joined sendGcode call instead of one socket.emit per key (the rapid back-to-back emits were dropping all but the first command). Added APPLY button feedback: APPLYING… while in flight, then ✓ APPLIED N flash for 1.5 s before restoring the original label.',
+        'Closes TarGz/TargzPenPlotterCtrl#15 — macOS application menu: replace placeholder "Application" entry with the standard pattern. First menu uses electronApp.name as label and exposes About <App> (role: about), separator, Hide / Hide Others / Show All, separator, Quit. electronApp.setAboutPanelOptions populates the native About panel with applicationName, applicationVersion, version (with -targz suffix), copyright, and the app icon.',
+        'Closes TarGz/TargzPenPlotterCtrl#14 — build-mac script now passes --config.productName="TargzPenPlotterCtrl-$npm_package_version" so each build produces a versioned .app bundle (e.g. TargzPenPlotterCtrl-1.9.0.app), allowing multiple versions to coexist in /Applications. Each versioned bundle is a distinct app to macOS with its own userData path; settings from previous unversioned installs do not auto-migrate.'
+      ]
+    },
+    {
       date: '2026-05-03',
       version: '1.8.4',
       changes: [

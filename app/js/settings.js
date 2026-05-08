@@ -129,7 +129,9 @@
         '<div class="cd-set-toolbar">' +
           '<input type="text" class="cd-set-search" id="cdSetParamSearch" placeholder="Search by name or $-key…" />' +
           '<button class="cd-set-btn" id="cdSetParamRefresh">↻ REFRESH</button>' +
+          '<button class="cd-set-btn" id="cdSetParamImport">↑ IMPORT</button>' +
           '<button class="cd-set-btn" id="cdSetParamExport">↓ EXPORT</button>' +
+          '<input type="file" id="cdSetParamImportFile" accept=".txt,.nc,.gcode" style="display:none;" />' +
         '</div>' +
         '<div class="cd-set-thead">' +
           '<span style="flex:0 0 60px;">KEY</span>' +
@@ -163,6 +165,19 @@
       } else {
         exportParamsFallback();
       }
+    });
+    $('#cdSetParamImport').on('click', function () {
+      $('#cdSetParamImportFile').trigger('click');
+    });
+    $('#cdSetParamImportFile').on('change', function (evt) {
+      var file = evt.target.files && evt.target.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function (e) {
+        importParamsFromText(String(e.target.result || ''));
+      };
+      reader.readAsText(file);
+      this.value = '';
     });
     $('#cdSetParamDiscard').on('click', function () {
       paramDirty = {};
@@ -218,14 +233,25 @@
       alert('Not connected to controller.');
       return;
     }
-    keys.forEach(function (k) {
-      sendGcode(k + '=' + paramDirty[k] + '\n');
-    });
+    var $btn = $('#cdSetParamApply');
+    var origLabel = $btn.text();
+    $btn.prop('disabled', true).text('APPLYING…');
+
+    var batch = keys.map(function (k) { return k + '=' + paramDirty[k]; }).join('\n') + '\n';
+    sendGcode(batch);
+
+    var count = keys.length;
     paramDirty = {};
     setTimeout(function () {
       if (typeof sendGcode === 'function') sendGcode('$$');
-      setTimeout(refreshParameters, 300);
-    }, 200);
+      setTimeout(function () {
+        refreshParameters();
+        $btn.text('✓ APPLIED ' + count);
+        setTimeout(function () {
+          $btn.prop('disabled', false).text(origLabel);
+        }, 1500);
+      }, 400);
+    }, 300);
   }
 
   function exportParamsFallback() {
@@ -236,6 +262,36 @@
     a.href = URL.createObjectURL(blob);
     a.download = 'grbl-settings.txt';
     a.click();
+  }
+
+  function importParamsFromText(text) {
+    var lines = text.split(/\r?\n/);
+    var loaded = 0;
+    var matched = 0;
+    var skipped = 0;
+    lines.forEach(function (raw) {
+      var line = raw.split(';')[0].trim();
+      if (!line) return;
+      var eq = line.indexOf('=');
+      if (eq < 0) return;
+      var key = line.slice(0, eq).trim();
+      var val = line.slice(eq + 1).trim();
+      if (!/^\$\d+$/.test(key)) { skipped++; return; }
+      var live = (typeof grblParams !== 'undefined' && grblParams[key] !== undefined) ? String(grblParams[key]) : null;
+      if (live !== null && live === val) { matched++; return; }
+      paramDirty[key] = val;
+      loaded++;
+    });
+    refreshParameters();
+    if (loaded === 0) {
+      if (matched > 0) {
+        alert('All ' + matched + ' parameter' + (matched === 1 ? '' : 's') + ' in file already match the controller — nothing to apply.');
+      } else if (skipped > 0) {
+        alert('No GRBL parameters found in file (' + skipped + ' line' + (skipped === 1 ? '' : 's') + ' skipped).');
+      } else {
+        alert('No GRBL parameters found in file.');
+      }
+    }
   }
 
   // ═══ Section: Calibration ══════════════════════════════════════════════════

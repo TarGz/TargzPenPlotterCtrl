@@ -3071,18 +3071,35 @@ if (isElectron()) {
 
     function createMenu() {
 
+      var pkgVersion = require('./package').version;
+      electronApp.setAboutPanelOptions({
+        applicationName: electronApp.name,
+        applicationVersion: pkgVersion,
+        version: pkgVersion + '-targz',
+        copyright: 'Targz fork of OpenBuilds CONTROL — AGPL-3.0',
+        iconPath: iconPath
+      });
+
       var template = [{
-        label: "Application",
-        submenu: [{
-          label: "Quit",
-          accelerator: "Command+Q",
-          click: function() {
-            if (appIcon) {
-              appIcon.destroy();
+        label: electronApp.name,
+        submenu: [
+          { role: 'about' },
+          { type: 'separator' },
+          { role: 'hide' },
+          { role: 'hideOthers' },
+          { role: 'unhide' },
+          { type: 'separator' },
+          {
+            label: "Quit",
+            accelerator: "Command+Q",
+            click: function() {
+              if (appIcon) {
+                appIcon.destroy();
+              }
+              electronApp.exit(0);
             }
-            electronApp.exit(0);
           }
-        }]
+        ]
       }, {
         label: "Edit",
         submenu: [{
