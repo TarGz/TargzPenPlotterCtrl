@@ -729,6 +729,14 @@
                 <span class="cd-set-nav-label">TOOLS &amp; WIZARDS</span>
                 <span class="cd-set-nav-hint">Surfacing · firmware · USB</span>
               </button>
+              <button class="cd-set-nav-item" data-target="parking">
+                <span class="cd-set-nav-label">PARKING</span>
+                <span class="cd-set-nav-hint">Park position at job end</span>
+              </button>
+              <button class="cd-set-nav-item" data-target="notify">
+                <span class="cd-set-nav-label">NOTIFICATIONS</span>
+                <span class="cd-set-nav-hint">Phone alert when a plot ends</span>
+              </button>
               <button class="cd-set-nav-item" data-target="shortcuts">
                 <span class="cd-set-nav-label">KEYBOARD</span>
                 <span class="cd-set-nav-hint">Customize shortcuts</span>
@@ -1055,6 +1063,14 @@
                    the Edit Start button when opened) -->
               <div id="cd-run-controls" class="cd-panel-section cd-run-section cd-run-bottom">
                 <div class="cd-section-title"><span class="cd-dot"></span> RUN</div>
+
+                <label class="cd-set-toggle-row" id="cdParkToggleRow" style="padding:6px 2px;">
+                  <button type="button" class="cd-set-toggle" id="cdParkToggle"></button>
+                  <div class="cd-set-toggle-text">
+                    <div class="cd-set-toggle-label">PARK AT END</div>
+                    <div class="cd-set-toggle-hint">Move to parking position when the job finishes · Settings › PARKING</div>
+                  </div>
+                </label>
 
                 <div id="cdRunIdle">
                   <button id="cdStartBtn" class="cd-btn-start" onclick="runJobFile()" disabled>▶ START</button>

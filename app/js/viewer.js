@@ -292,6 +292,38 @@ function redrawGrid(xmin, xmax, ymin, ymax, inches) {
 
   grid.add(axesgrp);
 
+  // Work-zero (G54 origin) marker — a map-pin standing at scene 0,0,0.
+  // The toolpath is drawn in work coords, so 0,0,0 IS the work zero the job runs from;
+  // a big pin here makes a misplaced origin obvious before launching a plot.
+  var pinH = Math.min(60, Math.max(18, Math.min(xmax, ymax) * 0.05));
+  var pinR = pinH * 0.26;
+  var pinMat = new THREE.MeshLambertMaterial({ color: 0xff2d55 });
+
+  var workZeroPin = new THREE.Object3D();
+  workZeroPin.name = "WorkZeroPin";
+
+  var pinBodyGeo = new THREE.CylinderGeometry(pinR, 0, pinH, 20, 1, false);
+  pinBodyGeo.applyMatrix(new THREE.Matrix4().makeTranslation(0, pinH / 2, 0)); // tip at y=0
+  workZeroPin.add(new THREE.Mesh(pinBodyGeo, pinMat));
+
+  var pinHeadGeo = new THREE.SphereGeometry(pinR, 20, 16);
+  pinHeadGeo.applyMatrix(new THREE.Matrix4().makeTranslation(0, pinH, 0));
+  workZeroPin.add(new THREE.Mesh(pinHeadGeo, pinMat));
+
+  workZeroPin.rotation.x = Math.PI / 2; // stand the pin up along +Z (Z is up), tip on the work plane
+  grid.add(workZeroPin);
+
+  var zerolbl = this.makeSprite(this.scene, "webgl", {
+    x: 0,
+    y: 0,
+    z: pinH + pinR * 1.2,
+    text: "0",
+    color: "#ffffff",
+    size: pinR * 1.5
+  });
+  zerolbl.name = "WorkZeroLabel";
+  grid.add(zerolbl);
+
   var step10 = 10;
   var step100 = 100;
   if (inches) {

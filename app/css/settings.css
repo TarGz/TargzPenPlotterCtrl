@@ -483,7 +483,8 @@
   flex: 0 0 240px;
 }
 
-.cd-set-row-val input[type="number"] {
+.cd-set-row-val input[type="number"],
+.cd-set-row-val input[type="text"] {
   width: 100%;
   padding: 5px 8px;
   font-size: 11px;
@@ -496,7 +497,8 @@
   outline: none;
 }
 
-.cd-set-row-val input[type="number"]:focus {
+.cd-set-row-val input[type="number"]:focus,
+.cd-set-row-val input[type="text"]:focus {
   border-color: var(--cd-accent);
 }
 

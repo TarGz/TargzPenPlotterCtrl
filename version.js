@@ -2,6 +2,43 @@ module.exports = {
   version: require('./package.json').version,
   CHANGELOG: [
     {
+      date: '2026-07-05',
+      version: '1.13.0',
+      changes: [
+        'Fix TRAVEL always empty: the gcode parser worker computed the cumulative distance (distSum) but never included it in the exported linePoints for straight moves (only arc points had it) — and a pen plot is 100% straight moves. distSum is now exported for straight segments too, so the JOB panel shows real plotted distance. Requires re-loading the gcode file (the value is baked in at parse time).',
+        'Parking: add a configurable Travel Z (lift height used while moving to the park position) in Settings › PARKING, stored as parkTravelZ. Defaults to the pen-up height, which was previously hardcoded as the lift height.'
+      ]
+    },
+    {
+      date: '2026-07-04',
+      version: '1.12.1',
+      changes: [
+        'Fix REMAINING stuck at 00h:00m mid-job: it was computed as (parser time estimate − elapsed), and the parser estimate ignores acceleration so it badly undershoots on segment-heavy hatch jobs. Now extrapolated from real line throughput (elapsed × lines-left / lines-done) once 100+ lines are in, in both the queueCount handler and the 1 Hz ticker; parser estimate kept only as an early-job fallback.',
+        'Fix TRAVEL stuck at 0mm: it was never fed (hardcoded undefined). Now reads the cumulative plotted distance (distSum) of the current toolpath point via gcodeLineToPointIndex. Displays in metres above 1000 mm.'
+      ]
+    },
+    {
+      date: '2026-07-04',
+      version: '1.12.0',
+      changes: [
+        'Add phone notifications when a plot finishes, via ntfy (no account, no API keys). New Settings › NOTIFICATIONS section: enable toggle, topic (auto-generated random secret on first open), server URL (defaults to public https://ntfy.sh, swappable for a self-hosted instance), and a SEND TEST button. On clean job completion the jobComplete handler POSTs a "Plot finished — <file> in <time>" message to the topic; the user just installs the free ntfy app and subscribes to the topic. Persisted in localStorage (ntfyEnabled / ntfyTopic / ntfyServer). Skipped on abort/fail.'
+      ]
+    },
+    {
+      date: '2026-07-04',
+      version: '1.11.0',
+      changes: [
+        'Add PARK AT END: optionally move the head to a fixed position when a job finishes. Toggle on the RUN panel (mirrored in Settings › PARKING), park X/Y/Z configurable in Settings (defaults X:0 Y:0, Z:pen-down height). On completion it lifts to the pen-up height, rapids to the park X/Y, then lowers to the park Z — so the pen never drags across the work. Emitted from the jobComplete handler; skipped on abort/fail. Persisted in localStorage (parkEnabled / parkX / parkY / parkZ).'
+      ]
+    },
+    {
+      date: '2026-06-28',
+      version: '1.10.0',
+      changes: [
+        'Add a work-zero (G54 origin) marker to the 3D viewer: a red map-pin standing at scene 0,0,0 with a "0" label. The toolpath is drawn in work coordinates, so this pin marks the point the job runs from — making a misplaced origin obvious before launching a plot (the cause of out-of-bounds ALARM:2 on the first rapid). Drawn in redrawGrid so it scales with the bed and is rebuilt on every grid redraw.'
+      ]
+    },
+    {
       date: '2026-05-08',
       version: '1.9.0',
       changes: [

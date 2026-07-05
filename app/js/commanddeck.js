@@ -416,6 +416,74 @@ $(document).ready(function () {
     });
   };
 
+  // ─── Parking (move to a fixed spot when a job finishes) ──────────────────
+  // Lifts the pen to the stored pen-up height for a safe travel, rapids to the
+  // park X/Y, then lowers to the park Z (defaults to the pen-down height).
+  // The enable toggle is mirrored between the RUN panel and Settings › PARKING.
+  window.cdReadParking = function () {
+    var pens = cdReadPenHeights();
+    var x = parseFloat(localStorage.getItem('parkX'));
+    var y = parseFloat(localStorage.getItem('parkY'));
+    var z = parseFloat(localStorage.getItem('parkZ'));
+    var tz = parseFloat(localStorage.getItem('parkTravelZ'));
+    if (isNaN(x)) x = 0;
+    if (isNaN(y)) y = 0;
+    if (isNaN(z)) z = pens.down;
+    if (isNaN(tz)) tz = pens.up;
+    return {
+      enabled: localStorage.getItem('parkEnabled') === 'true',
+      x: x, y: y, z: z, travelZ: tz
+    };
+  };
+
+  // Called once from the jobComplete handler; no-op unless parking is enabled.
+  window.cdRunParkMove = function () {
+    var p = cdReadParking();
+    if (!p.enabled || typeof sendGcode !== 'function') return;
+    sendGcode('G90\nG0 Z' + p.travelZ + '\nG0 X' + p.x + ' Y' + p.y + '\nG0 Z' + p.z);
+    if (typeof printLogModern === 'function') {
+      printLogModern('', 'PARK', 'Parked at X' + p.x + ' Y' + p.y + ' Z' + p.z, 'fg-darkGreen');
+    }
+  };
+
+  window.cdRefreshParkToggle = function () {
+    $('#cdParkToggle').toggleClass('on', localStorage.getItem('parkEnabled') === 'true');
+  };
+
+  $('#cdParkToggleRow').on('click', function (e) {
+    e.preventDefault();
+    var cur = localStorage.getItem('parkEnabled') === 'true';
+    localStorage.setItem('parkEnabled', (!cur).toString());
+    cdRefreshParkToggle();
+    if (typeof cdRefreshParkingSettings === 'function') cdRefreshParkingSettings();
+  });
+  cdRefreshParkToggle();
+
+  // ─── Phone notification via ntfy ─────────────────────────────────────────
+  // Simplest durable push: a plain HTTP POST to an ntfy topic. No account/keys.
+  // Server defaults to the public ntfy.sh but is swappable for a self-hosted one.
+  // Title stays ASCII (ntfy header constraint); the filename goes in the body.
+  window.cdSendNtfy = function (title, message, cb) {
+    var server = (localStorage.getItem('ntfyServer') || 'https://ntfy.sh').replace(/\/+$/, '');
+    var topic = localStorage.getItem('ntfyTopic');
+    if (!topic) { if (cb) cb(false); return; }
+    fetch(server + '/' + encodeURIComponent(topic), {
+      method: 'POST',
+      headers: { 'Title': title, 'Tags': 'white_check_mark' },
+      body: message
+    })
+      .then(function (r) { if (cb) cb(r.ok); })
+      .catch(function () { if (cb) cb(false); });
+  };
+
+  // Called from the jobComplete handler; no-op unless notifications are enabled.
+  window.cdNotifyPlotDone = function (filename, ms) {
+    if (localStorage.getItem('ntfyEnabled') !== 'true') return;
+    var dur = (typeof msToTime === 'function' && ms) ? msToTime(ms) : null;
+    var body = (filename || 'Plot') + ' finished' + (dur ? ' in ' + dur : '');
+    cdSendNtfy('Plot finished', body);
+  };
+
   // ─── Z-height edit popover ────────────────────────────────────────────────
   var $zpenPop = $(
     '<div id="cdZpenPopover" class="cd-zpen-popover">' +
@@ -862,7 +930,7 @@ $(document).ready(function () {
       $('#cdRemaining').text(cdFmtTime(remaining));
     }
     if (travelMm !== undefined) {
-      $('#cdTravel').text(Math.round(travelMm) + 'mm');
+      $('#cdTravel').text(travelMm >= 1000 ? (travelMm / 1000).toFixed(1) + 'm' : Math.round(travelMm) + 'mm');
     }
   };
 
@@ -892,14 +960,17 @@ $(document).ready(function () {
   };
   function cdProgressTick() {
     if (typeof lastJobStartTime === 'undefined' || !lastJobStartTime) return;
-    var totalMin = NaN;
-    if (typeof object !== 'undefined' && object && object.userData && !isNaN(object.userData.totalTime)) {
-      totalMin = object.userData.totalTime;
-    } else if (!isNaN(cdJobState.totalTimeMin)) {
-      totalMin = cdJobState.totalTimeMin;
-    }
     var elapsedMin = (Date.now() - lastJobStartTime) / 1000 / 60;
-    var remainingMin = isNaN(totalMin) ? NaN : Math.max(0, totalMin - elapsedMin);
+    // Prefer extrapolation from real line throughput; the parser's totalTime
+    // estimate ignores acceleration and undershoots on segment-heavy jobs.
+    var remainingMin = NaN;
+    if (cdJobState.done > 100 && cdJobState.total > 0) {
+      remainingMin = elapsedMin * (cdJobState.total - cdJobState.done) / cdJobState.done;
+    } else if (typeof object !== 'undefined' && object && object.userData && !isNaN(object.userData.totalTime)) {
+      remainingMin = Math.max(0, object.userData.totalTime - elapsedMin);
+    } else if (!isNaN(cdJobState.totalTimeMin)) {
+      remainingMin = Math.max(0, cdJobState.totalTimeMin - elapsedMin);
+    }
     var pct = (cdJobState.total > 0) ? (cdJobState.done / cdJobState.total) * 100 : 0;
     $('#cdElapsed').text(cdFmtTime(elapsedMin));
     if (!isNaN(remainingMin)) $('#cdRemaining').text(cdFmtTime(remainingMin));

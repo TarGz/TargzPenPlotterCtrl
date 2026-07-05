@@ -28,6 +28,8 @@
       .append(buildParametersSection())
       .append(buildCalibrationSection())
       .append(buildToolsSection())
+      .append(buildParkingSection())
+      .append(buildNotifySection())
       .append(buildShortcutsSection())
       .append(buildDiagnosticsSection())
       .append(buildAboutSection());
@@ -41,9 +43,13 @@
     bindDiagnostics();
     bindTools();
     bindCalibration();
+    bindParking();
+    bindNotify();
     renderAbout();
     refreshDiagnostics();
     refreshParameters();
+    refreshParking();
+    refreshNotify();
 
     // Default panel
     cdSettingsShow('diagnostics');
@@ -59,6 +65,8 @@
 
     if (target === 'parameters') refreshParameters();
     if (target === 'diagnostics') refreshDiagnostics();
+    if (target === 'parking') refreshParking();
+    if (target === 'notify') refreshNotify();
     if (target === 'about') renderAbout();
   };
 
@@ -335,6 +343,156 @@
       var id = $(this).data('cal');
       var fn = map[id];
       if (typeof fn === 'function') fn();
+    });
+  }
+
+  // ═══ Section: Parking ═════════════════════════════════════════════════════
+  // Reads/writes localStorage directly; cdReadParking (commanddeck.js) owns the
+  // defaults and the pen-height fallback for Z. The enable toggle is shared with
+  // the RUN-panel toggle, so both refresh each other.
+  function buildParkingSection() {
+    function row(key, name, step) {
+      return '<div class="cd-set-row">' +
+        '<span class="cd-set-row-key">' + key.replace('park', '') + '</span>' +
+        '<span class="cd-set-row-name">' + name + '</span>' +
+        '<span class="cd-set-row-val"><input type="number" data-park="' + key + '" step="' + step + '" /></span>' +
+        '<span class="cd-set-row-unit">mm</span>' +
+      '</div>';
+    }
+    var html = '<section class="cd-set-section" data-section="parking">' +
+      '<div class="cd-set-header">' +
+        '<div class="cd-set-header-main">' +
+          '<div class="cd-set-header-title">PARKING</div>' +
+          '<div class="cd-set-header-hint">When a job finishes: lift to the travel Z, move to the park X/Y, then lower to the park Z. Travel Z defaults to the pen-up height, park Z to the pen-down height.</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="cd-set-cards">' +
+        '<div class="cd-set-card cd-set-card-span">' +
+          '<div class="cd-set-card-header">PARK AT END OF JOB</div>' +
+          '<div class="cd-set-card-body">' +
+            '<label class="cd-set-toggle-row" data-park-toggle>' +
+              '<button type="button" class="cd-set-toggle"></button>' +
+              '<div class="cd-set-toggle-text">' +
+                '<div class="cd-set-toggle-label">Enable parking</div>' +
+                '<div class="cd-set-toggle-hint">Also available as a toggle on the RUN panel</div>' +
+              '</div>' +
+            '</label>' +
+            row('parkX', 'Park X position', '1') +
+            row('parkY', 'Park Y position', '1') +
+            row('parkZ', 'Park Z (arrival height)', '0.1') +
+            row('parkTravelZ', 'Travel Z (lift height during the move)', '0.1') +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</section>';
+    return $(html);
+  }
+
+  function bindParking() {
+    $('#cd-settings-layout').on('click', '[data-park-toggle]', function (e) {
+      e.preventDefault();
+      var cur = localStorage.getItem('parkEnabled') === 'true';
+      localStorage.setItem('parkEnabled', (!cur).toString());
+      refreshParking();
+      if (typeof cdRefreshParkToggle === 'function') cdRefreshParkToggle();
+    });
+    $('#cd-settings-layout').on('change', 'input[data-park]', function () {
+      var v = parseFloat($(this).val());
+      if (isNaN(v)) return;
+      localStorage.setItem($(this).data('park'), v);
+    });
+  }
+
+  function refreshParking() {
+    var on = localStorage.getItem('parkEnabled') === 'true';
+    $('[data-park-toggle] .cd-set-toggle').toggleClass('on', on);
+    var p = (typeof cdReadParking === 'function')
+      ? cdReadParking()
+      : { x: 0, y: 0, z: 0, travelZ: 5 };
+    var vals = { parkX: p.x, parkY: p.y, parkZ: p.z, parkTravelZ: p.travelZ };
+    Object.keys(vals).forEach(function (k) {
+      var $i = $('input[data-park="' + k + '"]');
+      if (!$i.is(':focus')) $i.val(vals[k]);
+    });
+  }
+  // Let the RUN-panel toggle re-sync this section when it flips the shared flag.
+  window.cdRefreshParkingSettings = refreshParking;
+
+  // ═══ Section: Notifications ═══════════════════════════════════════════════
+  // Phone push via ntfy (see cdSendNtfy in commanddeck.js). A topic is a shared
+  // secret address on the ntfy server; we generate a random one on first open so
+  // the user only has to subscribe to it in the ntfy app.
+  function buildNotifySection() {
+    function textRow(key, name, placeholder) {
+      return '<div class="cd-set-row">' +
+        '<span class="cd-set-row-name" style="flex:0 0 90px;">' + name + '</span>' +
+        '<span class="cd-set-row-val" style="flex:1;"><input type="text" data-notify="' + key + '" placeholder="' + placeholder + '" spellcheck="false" /></span>' +
+      '</div>';
+    }
+    var html = '<section class="cd-set-section" data-section="notify">' +
+      '<div class="cd-set-header">' +
+        '<div class="cd-set-header-main">' +
+          '<div class="cd-set-header-title">NOTIFICATIONS</div>' +
+          '<div class="cd-set-header-hint">Get a push on your phone when a plot finishes. Uses ntfy: install the free ntfy app (iOS / Android) and subscribe to the topic below — no account needed.</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="cd-set-cards">' +
+        '<div class="cd-set-card cd-set-card-span">' +
+          '<div class="cd-set-card-header">PHONE NOTIFICATION (ntfy)</div>' +
+          '<div class="cd-set-card-body">' +
+            '<label class="cd-set-toggle-row" data-notify-toggle>' +
+              '<button type="button" class="cd-set-toggle"></button>' +
+              '<div class="cd-set-toggle-text">' +
+                '<div class="cd-set-toggle-label">Notify when plot finishes</div>' +
+                '<div class="cd-set-toggle-hint">Subscribe to the topic in the ntfy app first</div>' +
+              '</div>' +
+            '</label>' +
+            textRow('ntfyTopic', 'Topic', 'targz-plot-xxxx') +
+            textRow('ntfyServer', 'Server', 'https://ntfy.sh') +
+            '<div class="cd-set-row" style="justify-content:flex-end;">' +
+              '<button class="cd-set-btn cd-set-btn-primary" id="cdNotifyTest">SEND TEST</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</section>';
+    return $(html);
+  }
+
+  function bindNotify() {
+    $('#cd-settings-layout').on('click', '[data-notify-toggle]', function (e) {
+      e.preventDefault();
+      var cur = localStorage.getItem('ntfyEnabled') === 'true';
+      localStorage.setItem('ntfyEnabled', (!cur).toString());
+      refreshNotify();
+    });
+    $('#cd-settings-layout').on('change', 'input[data-notify]', function () {
+      localStorage.setItem($(this).data('notify'), $.trim($(this).val()));
+    });
+    $('#cd-settings-layout').on('click', '#cdNotifyTest', function () {
+      var $b = $(this);
+      if (typeof cdSendNtfy !== 'function') return;
+      $b.text('SENDING…').prop('disabled', true);
+      cdSendNtfy('Test', 'CONTROL notification is working', function (ok) {
+        $b.text(ok ? '✓ SENT' : '✕ FAILED');
+        setTimeout(function () { $b.text('SEND TEST').prop('disabled', false); }, 1600);
+      });
+    });
+  }
+
+  function refreshNotify() {
+    // Generate a stable random topic on first open so the user has something to subscribe to.
+    if (!localStorage.getItem('ntfyTopic')) {
+      localStorage.setItem('ntfyTopic', 'targz-plot-' + Math.random().toString(36).slice(2, 9));
+    }
+    $('[data-notify-toggle] .cd-set-toggle').toggleClass('on', localStorage.getItem('ntfyEnabled') === 'true');
+    var vals = {
+      ntfyTopic: localStorage.getItem('ntfyTopic') || '',
+      ntfyServer: localStorage.getItem('ntfyServer') || 'https://ntfy.sh'
+    };
+    Object.keys(vals).forEach(function (k) {
+      var $i = $('input[data-notify="' + k + '"]');
+      if (!$i.is(':focus')) $i.val(vals[k]);
     });
   }
 

@@ -334,6 +334,16 @@ function initSocket() {
       }
       storeJob(completedJob);
 
+      // Park the head once the job finishes cleanly (skip on abort/fail).
+      if (!data.failed && typeof cdRunParkMove === 'function') {
+        cdRunParkMove();
+      }
+
+      // Push a phone notification on clean completion.
+      if (!data.failed && typeof cdNotifyPlotDone === 'function') {
+        cdNotifyPlotDone(loadedFileName, runTime);
+      }
+
     }
 
     // With jobCompletedMsg Message
@@ -423,12 +433,25 @@ function initSocket() {
     $('#gcodesent').html("Job Queue: " + data[0]);
     if (typeof cdUpdateQueue === 'function') cdUpdateQueue(data[0]);
     if (typeof cdUpdateJobProgress === 'function') {
-      var elapsed, remaining;
-      if (lastJobStartTime && typeof object !== 'undefined' && object && object.userData && !isNaN(object.userData.totalTime)) {
+      var elapsed, remaining, travel;
+      if (lastJobStartTime) {
         elapsed = (new Date().getTime() - lastJobStartTime) / 1000 / 60;
-        remaining = object.userData.totalTime - elapsed;
+        // The parser's totalTime estimate ignores acceleration, so on jobs with
+        // many short segments it undershoots badly and "estimate - elapsed"
+        // hits zero mid-job. Extrapolate from actual line throughput instead.
+        if (done > 100 && total > 0) {
+          remaining = elapsed * (total - done) / done;
+        } else if (typeof object !== 'undefined' && object && object.userData && !isNaN(object.userData.totalTime)) {
+          remaining = Math.max(0, object.userData.totalTime - elapsed);
+        }
       }
-      cdUpdateJobProgress(isNaN(donepercent) ? 0 : donepercent, done, total, elapsed, remaining, undefined);
+      if (typeof object !== 'undefined' && object && object.userData && object.userData.gcodeLineToPointIndex) {
+        var tIdx = object.userData.gcodeLineToPointIndex[done];
+        if (tIdx !== undefined && object.userData.linePoints[tIdx] && object.userData.linePoints[tIdx].distSum !== undefined) {
+          travel = object.userData.linePoints[tIdx].distSum;
+        }
+      }
+      cdUpdateJobProgress(isNaN(donepercent) ? 0 : donepercent, done, total, elapsed, remaining, travel);
     }
   })
 
