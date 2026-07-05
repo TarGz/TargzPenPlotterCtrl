@@ -93,7 +93,7 @@ function drawWorkspace(xmin, xmax, ymin, ymax) {
   sceneLights.name = "Scene Lights"
   workspace.add(sceneLights);
 
-  scene.fog = new THREE.Fog(0xffffff, 1, 20000);
+  scene.fog = new THREE.Fog(0xFFFAF4, 1, 20000);
 
   // SKYDOME
   if (!disable3Dskybox) {
@@ -194,6 +194,39 @@ function redrawGrid(xmin, xmax, ymin, ymax, inches) {
 
   var grid = new THREE.Group();
 
+  // White work-area plane + contour, drawn behind the grid so ticks/rulers read on white.
+  // This is the "canvas" the user sees; the outer tab stays on the cream --cd-bg.
+  var wxmin = inches ? Math.floor(xmin * 25.4) : Math.floor(xmin);
+  var wxmax = inches ? Math.ceil(xmax * 25.4)  : Math.ceil(xmax);
+  var wymin = inches ? Math.floor(ymin * 25.4) : Math.floor(ymin);
+  var wymax = inches ? Math.ceil(ymax * 25.4)  : Math.ceil(ymax);
+  if (!wxmax) wxmax = 200;
+  if (!wymax) wymax = 200;
+  var planeW = wxmax - wxmin;
+  var planeH = wymax - wymin;
+  var workPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(planeW, planeH),
+    new THREE.MeshBasicMaterial({ color: 0xFFFFFF, transparent: false, depthWrite: false })
+  );
+  workPlane.position.set((wxmin + wxmax) / 2, (wymin + wymax) / 2, -0.5);
+  workPlane.name = "WorkAreaBackground";
+  grid.add(workPlane);
+
+  var contourGeo = new THREE.Geometry();
+  contourGeo.vertices.push(
+    new THREE.Vector3(wxmin, wymin, 0.02),
+    new THREE.Vector3(wxmax, wymin, 0.02),
+    new THREE.Vector3(wxmax, wymax, 0.02),
+    new THREE.Vector3(wxmin, wymax, 0.02),
+    new THREE.Vector3(wxmin, wymin, 0.02)
+  );
+  var contour = new THREE.Line(
+    contourGeo,
+    new THREE.LineBasicMaterial({ color: 0xB8A888, linewidth: 2 })
+  );
+  contour.name = "WorkAreaContour";
+  grid.add(contour);
+
   var axesgrp = new THREE.Object3D();
   axesgrp.name = "Axes Markers"
 
@@ -259,6 +292,38 @@ function redrawGrid(xmin, xmax, ymin, ymax, inches) {
 
   grid.add(axesgrp);
 
+  // Work-zero (G54 origin) marker — a map-pin standing at scene 0,0,0.
+  // The toolpath is drawn in work coords, so 0,0,0 IS the work zero the job runs from;
+  // a big pin here makes a misplaced origin obvious before launching a plot.
+  var pinH = Math.min(60, Math.max(18, Math.min(xmax, ymax) * 0.05));
+  var pinR = pinH * 0.26;
+  var pinMat = new THREE.MeshLambertMaterial({ color: 0xff2d55 });
+
+  var workZeroPin = new THREE.Object3D();
+  workZeroPin.name = "WorkZeroPin";
+
+  var pinBodyGeo = new THREE.CylinderGeometry(pinR, 0, pinH, 20, 1, false);
+  pinBodyGeo.applyMatrix(new THREE.Matrix4().makeTranslation(0, pinH / 2, 0)); // tip at y=0
+  workZeroPin.add(new THREE.Mesh(pinBodyGeo, pinMat));
+
+  var pinHeadGeo = new THREE.SphereGeometry(pinR, 20, 16);
+  pinHeadGeo.applyMatrix(new THREE.Matrix4().makeTranslation(0, pinH, 0));
+  workZeroPin.add(new THREE.Mesh(pinHeadGeo, pinMat));
+
+  workZeroPin.rotation.x = Math.PI / 2; // stand the pin up along +Z (Z is up), tip on the work plane
+  grid.add(workZeroPin);
+
+  var zerolbl = this.makeSprite(this.scene, "webgl", {
+    x: 0,
+    y: 0,
+    z: pinH + pinR * 1.2,
+    text: "0",
+    color: "#ffffff",
+    size: pinR * 1.5
+  });
+  zerolbl.name = "WorkZeroLabel";
+  grid.add(zerolbl);
+
   var step10 = 10;
   var step100 = 100;
   if (inches) {
@@ -318,7 +383,7 @@ function init3D() {
       autoClearColor: true,
       antialias: true,
       preserveDrawingBuffer: true,
-      alpha: true
+      alpha: false
     });
     // ThreeJS Render/Control/Camera
     scene = new THREE.Scene();
@@ -326,7 +391,9 @@ function init3D() {
     camera.position.z = 295;
 
     $('#renderArea').append(renderer.domElement);
-    renderer.setClearColor(0xffffff, 1); // Background color of viewer = transparent
+    // V2: surround is cream (var(--cd-bg)); the white "work area" is drawn as a
+    // filled plane with a border contour inside the scene (see redrawGrid).
+    renderer.setClearColor(0xFFFAF4, 1);
     // renderer.setSize(window.innerWidth - 10, window.innerHeight - 10);
     renderer.clear();
 
@@ -546,12 +613,30 @@ function makeSprite(scene, rendererType, vals) {
 
 // Global Function to keep three fullscreen
 
+// Edit-mode helper: pan the camera onto the current scrub cursor point.
+// Mouse-wheel zoom via OrbitControls handles zoom; we just pan here.
+window.cdScrubFollow = function (x, y) {
+  if (typeof camera === 'undefined' || typeof controls === 'undefined' || !camera || !controls) return;
+  var dx = x - controls.target.x;
+  var dy = y - controls.target.y;
+  controls.target.x += dx;
+  controls.target.y += dy;
+  camera.position.x += dx;
+  camera.position.y += dy;
+  controls.update();
+};
+
+window.cdScrubResetCamera = function () {
+  if (typeof resetView === 'function') resetView();
+};
+
 function fixRenderSize() {
   if (renderer) {
     setTimeout(function() {
-      sceneWidth = document.getElementById("renderArea").offsetWidth;
-      sceneHeight = document.getElementById("renderArea").offsetHeight;
-      renderer.setSize(sceneWidth, sceneHeight);
+      var el = document.getElementById("renderArea");
+      sceneWidth = el.clientWidth || el.offsetWidth;
+      sceneHeight = el.clientHeight || el.offsetHeight;
+      renderer.setSize(sceneWidth, sceneHeight, true);
       //renderer.setSize(window.innerWidth, window.innerHeight);
       camera.aspect = sceneWidth / sceneHeight;
       camera.updateProjectionMatrix();
@@ -596,19 +681,17 @@ function resetView(object) {
 
 function drawMachineCoordinates(status) {
 
-  if (laststatus != undefined && grblParams.$130 !== undefined && grblParams.$131 !== undefined && grblParams.$132 !== undefined) {
-    var machineCoordinatesBoxMaxX = status.machine.position.work.x - status.machine.position.offset.x
-    var machineCoordinatesBoxMaxY = status.machine.position.work.y - status.machine.position.offset.y
-    var machineCoordinatesBoxMaxZ = status.machine.position.work.z - status.machine.position.offset.z
-
-    var machineCoordinatesBoxMinX = machineCoordinatesBoxMaxX - grblParams.$130
-    var machineCoordinatesBoxMinY = machineCoordinatesBoxMaxY - grblParams.$131
-    var machineCoordinatesBoxMinZ = machineCoordinatesBoxMaxZ - grblParams.$132
-
-    console.log("X", machineCoordinatesBoxMinX, machineCoordinatesBoxMaxX)
-    console.log("Y", machineCoordinatesBoxMinY, machineCoordinatesBoxMaxY)
-    console.log("Z", machineCoordinatesBoxMinZ, machineCoordinatesBoxMaxZ)
-
+  if (grblParams.$130 !== undefined && grblParams.$131 !== undefined && grblParams.$132 !== undefined) {
+    // Draw the envelope in WCS so it frames the white work-area plane (which is
+    // also drawn at 0..$130 / 0..$131 by redrawGrid). Previous version used
+    // `work - offset` (= MPos), which placed the wireframe in machine-coord
+    // space and floated it away from the toolpath whenever G54 offset != 0.
+    var machineCoordinatesBoxMinX = 0;
+    var machineCoordinatesBoxMinY = 0;
+    var machineCoordinatesBoxMinZ = 0;
+    var machineCoordinatesBoxMaxX = grblParams.$130;
+    var machineCoordinatesBoxMaxY = grblParams.$131;
+    var machineCoordinatesBoxMaxZ = grblParams.$132;
 
     workspace.remove(machineCoordinateSpace);
     machineCoordinateSpace = new THREE.Group();

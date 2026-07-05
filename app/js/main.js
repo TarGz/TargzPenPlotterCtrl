@@ -10,27 +10,8 @@ document.addEventListener("contextmenu", function(e) {
 }, false);
 
 function setWindowTitle(status) {
-
-  var string = ""
-
-  if (status) {
-    string += " v" + status.driver.version
-  } else if (laststatus) {
-    string += " v" + laststatus.driver.version
-  }
-
-
-  if (loadedFileName.length > 0) {
-    string += " / " + loadedFileName
-  }
-
-  if (!nostatusyet && laststatus.comms.interfaces.activePort) {
-    string += " / connected to " + laststatus.comms.interfaces.activePort
-  }
-
-  $('#windowtitle').html(string)
-  document.title = "OpenBuilds CONTROL" + string
-
+  $('#windowtitle').html("")
+  document.title = "OpenBuilds CONTROL"
 }
 
 
@@ -316,6 +297,7 @@ function loadFile(f) {
       }
       loadedFileName = f.name;
       setWindowTitle()
+      if (typeof cdUpdateFileState === 'function') cdUpdateFileState(true, f.name);
       if (webgl) {
         printLog(`<span class="fg-red">[ GCODE Parser ]</span><span class='fg-darkGray'> GCODE File Loaded, please wait while we render a preview... </span>`);
       } else {

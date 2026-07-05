@@ -170,6 +170,7 @@ function initSocket() {
     }
 
     loadedFileName = data.filename;
+    if (typeof cdUpdateFileState === 'function') cdUpdateFileState(true, data.filename);
 
     setWindowTitle()
     parseGcodeInWebWorker(data.gcode)
@@ -333,6 +334,16 @@ function initSocket() {
       }
       storeJob(completedJob);
 
+      // Park the head once the job finishes cleanly (skip on abort/fail).
+      if (!data.failed && typeof cdRunParkMove === 'function') {
+        cdRunParkMove();
+      }
+
+      // Push a phone notification on clean completion.
+      if (!data.failed && typeof cdNotifyPlotDone === 'function') {
+        cdNotifyPlotDone(loadedFileName, runTime);
+      }
+
     }
 
     // With jobCompletedMsg Message
@@ -420,6 +431,28 @@ function initSocket() {
       }
     }
     $('#gcodesent').html("Job Queue: " + data[0]);
+    if (typeof cdUpdateQueue === 'function') cdUpdateQueue(data[0]);
+    if (typeof cdUpdateJobProgress === 'function') {
+      var elapsed, remaining, travel;
+      if (lastJobStartTime) {
+        elapsed = (new Date().getTime() - lastJobStartTime) / 1000 / 60;
+        // The parser's totalTime estimate ignores acceleration, so on jobs with
+        // many short segments it undershoots badly and "estimate - elapsed"
+        // hits zero mid-job. Extrapolate from actual line throughput instead.
+        if (done > 100 && total > 0) {
+          remaining = elapsed * (total - done) / done;
+        } else if (typeof object !== 'undefined' && object && object.userData && !isNaN(object.userData.totalTime)) {
+          remaining = Math.max(0, object.userData.totalTime - elapsed);
+        }
+      }
+      if (typeof object !== 'undefined' && object && object.userData && object.userData.gcodeLineToPointIndex) {
+        var tIdx = object.userData.gcodeLineToPointIndex[done];
+        if (tIdx !== undefined && object.userData.linePoints[tIdx] && object.userData.linePoints[tIdx].distSum !== undefined) {
+          travel = object.userData.linePoints[tIdx].distSum;
+        }
+      }
+      cdUpdateJobProgress(isNaN(donepercent) ? 0 : donepercent, done, total, elapsed, remaining, travel);
+    }
   })
 
   socket.on('toastErrorAlarm', function(data) {
@@ -430,34 +463,10 @@ function initSocket() {
     var printLogCls = "fg-darkRed"
     printLogModern(icon, source, string, printLogCls)
 
-    var dialog = Metro.dialog.create({
-      clsDialog: 'dark',
-      title: "<i class='fas fa-exclamation-triangle'></i> Grbl Alarm:",
-      content: "<i class='fas fa-exclamation-triangle fg-darkRed'></i>  " + data,
-      actions: [{
-          caption: "Clear Alarm",
-          cls: "js-dialog-close alert closeAlarmBtn",
-          onclick: function() {
-            socket.emit('clearAlarm', 2)
-          }
-        },
-        {
-          caption: "Cancel",
-          cls: "js-dialog-close",
-          onclick: function() {
-            //
-          }
-        }
-      ]
-    });
-
-    if (data.indexOf("ALARM: 6") == -1 && data.indexOf("ALARM: 7") == -1 && data.indexOf("ALARM: 8") == -1 && data.indexOf("ALARM: 9") == -1 && data.indexOf("ALARM: 10") == -1) {
-      openDialogs.push(dialog);
-    }
-
-    setTimeout(function() {
-      $(".closeAlarmBtn").focus();
-    }, 200, )
+    // v1.5.3: modal popup suppressed in favour of the Command Deck #cd-alarm-banner
+    // header warning, which is driven by cdUpdateConnection on connectionStatus === 5.
+    // Kept the log path above so the console still reflects the event.
+    var dialog = null;
     //
   });
 
@@ -470,22 +479,9 @@ function initSocket() {
     var printLogCls = "fg-darkRed"
     printLogModern(icon, source, string, printLogCls)
 
-    var dialog = Metro.dialog.create({
-      title: "<i class='fas fa-exclamation-triangle'></i> Grbl Error:",
-      content: "<i class='fas fa-exclamation-triangle fg-darkRed'></i>  " + data,
-      clsDialog: 'dark',
-      actions: [{
-        caption: "OK",
-        cls: "js-dialog-close alert closeErrorBtn",
-        onclick: function() {
-          socket.emit('clearAlarm', 2)
-        }
-      }]
-    });
-    openDialogs.push(dialog);
-    setTimeout(function() {
-      $(".closeErrorBtn").focus();
-    }, 200, )
+    // v1.5.3: modal popup suppressed. The error is already visible in the serial
+    // log and in the Command Deck alarm banner when the state transitions to 5.
+    var dialog = null;
     //
   });
 
@@ -638,6 +634,11 @@ function initSocket() {
         populatePortsMenu();
       }
 
+      if (!_.isEqual(status.comms.interfaces.virtualPorts, laststatus.comms.interfaces.virtualPorts)) {
+        laststatus.comms.interfaces.virtualPorts = status.comms.interfaces.virtualPorts;
+        populatePortsMenu();
+      }
+
     }
 
     if (status.comms.runStatus.indexOf("Door") == 0) {
@@ -703,6 +704,13 @@ function initSocket() {
       if ($('#aPos').html() != apos) {
         $('#aPos').html(apos);
       }
+      if (typeof cdUpdatePosition === 'function') cdUpdatePosition(xpos, ypos, zpos);
+      if (typeof cdUpdateMPos === 'function') {
+        var mx = (status.machine.position.work.x + status.machine.position.offset.x).toFixed(3);
+        var my = (status.machine.position.work.y + status.machine.position.offset.y).toFixed(3);
+        var mz = (status.machine.position.work.z + status.machine.position.offset.z).toFixed(3);
+        cdUpdateMPos(mx, my, mz);
+      }
 
 
 
@@ -729,6 +737,12 @@ function initSocket() {
         $('#fro').data('slider').val(status.machine.overrides.feedOverride)
         $('#tro').data('slider').val(status.machine.overrides.spindleOverride)
       }
+      if (typeof cdUpdateFeed === 'function') {
+        var toolOn = status.machine.overrides.realSpindle > 0;
+        cdUpdateFeed(status.machine.overrides.realFeed, status.machine.overrides.feedOverride, status.machine.overrides.spindleOverride, toolOn);
+        cdUpdateToolState(toolOn);
+      }
+      if (typeof cdUpdateRunControls === 'function') cdUpdateRunControls(status.comms.connectionStatus);
     }
 
     if (unit == "mm") {
@@ -851,6 +865,7 @@ function initSocket() {
     setConnectBar(status.comms.connectionStatus, status);
     setControlBar(status.comms.connectionStatus, status)
     setJogPanel(status.comms.connectionStatus, status)
+    if (typeof cdUpdateConnection === 'function') cdUpdateConnection(status.comms.connectionStatus, status);
     setConsole(status.comms.connectionStatus, status)
     if (status.comms.connectionStatus != 5) {
       bellstate = false
@@ -1198,11 +1213,35 @@ function populatePortsMenu() {
       };
     }
     response += `</optgroup>`
+
+    var virtualPorts = (laststatus.comms.interfaces.virtualPorts || []);
+    if (virtualPorts.length) {
+      response += `<optgroup label="Virtual Ports">`
+      for (i = 0; i < virtualPorts.length; i++) {
+        var lastUsedPortV = localStorage.getItem('lastUsedPort');
+        if (virtualPorts[i].path == lastUsedPortV) {
+          response += `<option value="` + virtualPorts[i].path + `" selected>` + virtualPorts[i].path + " " + virtualPorts[i].note + `</option>`;
+        } else {
+          response += `<option value="` + virtualPorts[i].path + `">` + virtualPorts[i].path + " " + virtualPorts[i].note + `</option>`;
+        }
+      }
+      response += `</optgroup>`
+    }
+
     var select = $("#portUSB").data("select");
     select.data(response);
 
     $('#portUSB').parent(".select").removeClass('disabled')
     $("#connectBtn").attr('disabled', false);
+
+    // Metro4's select.data() updates only its widget, not the native <select>
+    // children. Inject the same HTML directly into #cdPortSelect so the CD
+    // dropdown has real <optgroup>/<option> nodes to render from.
+    // Use innerHTML directly: jQuery's .html() parses via a detached <div>
+    // which silently strips <optgroup> tags (they're invalid children of div).
+    var cdSel = document.getElementById('cdPortSelect');
+    if (cdSel) cdSel.innerHTML = response;
+    if (typeof window.cdSyncPortOptions === 'function') window.cdSyncPortOptions();
   }
 }
 
@@ -1215,6 +1254,9 @@ function sendGcode(gcode) {
 function feedOverride(step) {
   if (socket) {
     socket.emit('feedOverride', step);
+    // Also drive the grbl rapid (G0) override so FEED governs XY travel during
+    // a plotter job, not just G1 strokes. Backend maps to 100/50/25.
+    socket.emit('rapidOverride', step);
     $('#fro').data('slider').buff(((step - 10) * 100) / (200 - 10))
   }
 }

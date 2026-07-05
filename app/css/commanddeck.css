@@ -1,0 +1,2198 @@
+/* Command Deck layout — full replacement for Machine Control tab.
+   Mirrors direction-commanddeck.jsx exactly, wired to existing socket.io plumbing. */
+
+/* ─── Palette ─────────────────────────────────────────────────────────────── */
+:root {
+  --cd-bg:           #FFFAF4;
+  --cd-panel:        #FFFFFF;
+  --cd-panel-alt:    #F7F1E8;
+  --cd-panel-hi:     #F0E8D8;
+  --cd-border:       #EADFCB;
+  --cd-border-strong:#D4C6A8;
+  --cd-text:         #1F1A12;
+  --cd-text-muted:   #7A6F5B;
+  --cd-text-faint:   #A89E87;
+  --cd-accent:       #EA580C;
+  --cd-accent-hi:    #F97316;
+  --cd-accent-dim:   #FED7AA;
+  --cd-accent-soft:  #FFEEDD;
+  --cd-axis-x:       #DC2626;
+  --cd-axis-y:       #16A34A;
+  --cd-axis-z:       #2563EB;
+  --cd-good:         #16A34A;
+  --cd-bad:          #DC2626;
+  --cd-amber:        #D97706;
+  --cd-mono:        'JetBrains Mono', 'Lucida Console', Monaco, monospace;
+}
+
+/* ─── Root layout ──────────────────────────────────────────────────────────── */
+#cd-layout {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 26px); /* below slimmed titlebar */
+  background: var(--cd-bg);
+  color: var(--cd-text);
+  font-family: var(--pc-font);
+  font-size: 12px;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Ribbon hidden when CD is active */
+.window-content > nav.cd-ribbon-hidden {
+  display: none !important;
+}
+
+/* ─── Top bar ──────────────────────────────────────────────────────────────── */
+#cd-topbar {
+  height: 40px;
+  background: var(--cd-panel);
+  border-bottom: 1px solid var(--cd-border);
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.cd-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  border-right: 1px solid var(--cd-border);
+  flex-shrink: 0;
+}
+
+.cd-logo-box {
+  width: 18px;
+  height: 18px;
+  background: var(--cd-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 800;
+  font-size: 11px;
+  font-family: var(--cd-mono);
+  flex-shrink: 0;
+}
+
+.cd-logo-text {
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.3px;
+  font-family: var(--cd-mono);
+  white-space: nowrap;
+}
+
+.cd-logo-muted {
+  color: var(--cd-text-muted);
+}
+
+.cd-logo-version {
+  margin-left: 8px;
+  padding: 1px 6px;
+  font-family: var(--cd-mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  color: var(--cd-text-faint);
+  background: var(--cd-panel-alt);
+  border: 1px solid var(--cd-border);
+  border-radius: 2px;
+  white-space: nowrap;
+}
+
+.cd-tabs-nav {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.cd-tab {
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+  font-family: var(--cd-mono);
+  font-weight: 500;
+  letter-spacing: 1px;
+  color: var(--cd-text-muted);
+  border-right: 1px solid var(--cd-border);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.1s, border-color 0.1s;
+  white-space: nowrap;
+}
+
+.cd-tab:hover {
+  color: var(--cd-text);
+}
+
+.cd-tab.cd-tab-active {
+  color: var(--cd-accent);
+  border-bottom-color: var(--cd-accent);
+}
+
+.cd-topbar-file {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 10px;
+  overflow: hidden;
+  min-width: 0;
+}
+
+#cdFileName {
+  font-family: var(--cd-mono);
+  font-size: 11px;
+  color: var(--cd-text);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#cdFileUnload {
+  font-size: 9px;
+  font-family: var(--cd-mono);
+  padding: 2px 6px;
+  background: transparent;
+  border: 1px solid var(--cd-border);
+  color: var(--cd-text-muted);
+  cursor: pointer;
+  border-radius: 2px;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+
+#cdFileUnload:hover {
+  border-color: var(--cd-bad);
+  color: var(--cd-bad);
+}
+
+.cd-open-btn {
+  font-size: 10px;
+  font-family: var(--cd-mono);
+  padding: 4px 10px;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+  background: transparent;
+  border: 1px dashed var(--cd-border-strong);
+  color: var(--cd-accent);
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.cd-open-btn:disabled {
+  color: var(--cd-text-faint);
+  cursor: not-allowed;
+  border-color: var(--cd-border);
+}
+
+.cd-open-btn:hover:not(:disabled) {
+  background: var(--cd-accent-soft);
+}
+
+.cd-topbar-conn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  border-left: 1px solid var(--cd-border);
+  flex-shrink: 0;
+}
+
+.cd-conn-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cd-text-faint);
+  flex-shrink: 0;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+
+.cd-conn-dot.cd-connected {
+  background: var(--cd-good);
+  box-shadow: 0 0 6px var(--cd-good);
+}
+
+.cd-conn-label {
+  font-family: var(--cd-mono);
+  font-size: 10px;
+  color: var(--cd-text-muted);
+  letter-spacing: 0.8px;
+  white-space: nowrap;
+}
+
+.cd-conn-label.cd-connected {
+  color: var(--cd-good);
+}
+
+/* ── CD port selector (custom dropdown — stays inside the window) ── */
+.cd-port-select-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  background: var(--pc-surface, #fff);
+  border: 1px solid var(--pc-border-default, rgba(0,0,0,0.1));
+  border-radius: 6px;
+  padding: 0 4px 0 10px;
+  height: 30px;
+  min-width: 220px;
+  max-width: 360px;
+  cursor: pointer;
+  position: relative;
+}
+.cd-port-select-wrap:hover {
+  border-color: rgba(0,0,0,0.2);
+}
+.cd-port-select-wrap:focus-within {
+  border-color: var(--pc-primary, #FF6A00);
+  box-shadow: 0 0 0 2px rgba(255, 106, 0, 0.15);
+}
+
+.cd-port-icon {
+  color: var(--cd-text-muted, #6B6B6B);
+  font-size: 12px;
+  margin-right: 8px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.cd-port-button {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--cd-text, #1a1a1a);
+  font-family: var(--cd-mono);
+  font-size: 12px;
+  padding: 0 22px 0 0;
+  height: 28px;
+  line-height: 28px;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+  text-align: left;
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+}
+.cd-port-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.cd-port-button-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cd-port-caret {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  width: 10px;
+  height: 6px;
+  transform: translateY(-50%);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='none' stroke='%236B6B6B' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M1 1l4 4 4-4'/></svg>");
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+
+.cd-port-select-hidden {
+  display: none !important;
+}
+
+.cd-port-menu {
+  position: fixed;
+  z-index: 10000;
+  background: var(--pc-surface, #fff);
+  border: 1px solid var(--pc-border-default, rgba(0,0,0,0.12));
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+  padding: 4px 0;
+  max-height: 360px;
+  overflow-y: auto;
+  min-width: 220px;
+  font-family: var(--cd-mono);
+  font-size: 12px;
+  color: var(--cd-text, #1a1a1a);
+}
+.cd-port-menu[hidden] { display: none; }
+
+.cd-port-menu-group {
+  padding: 6px 12px 2px;
+  font-family: var(--pc-font, inherit);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--cd-text-muted, #6B6B6B);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cd-port-menu-item {
+  padding: 6px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cd-port-menu-item:hover,
+.cd-port-menu-item.cd-port-menu-item-active {
+  background: var(--pc-primary, #FF6A00);
+  color: #fff;
+}
+.cd-port-menu-item.cd-port-menu-item-selected::before {
+  content: "✓";
+  display: inline-block;
+  width: 12px;
+  margin-left: -4px;
+}
+.cd-port-menu-item:not(.cd-port-menu-item-selected)::before {
+  content: "";
+  display: inline-block;
+  width: 12px;
+  margin-left: -4px;
+}
+.cd-port-menu-item-disabled {
+  color: var(--cd-text-faint, #a0a0a0);
+  cursor: default;
+}
+.cd-port-menu-item-disabled:hover {
+  background: transparent;
+  color: var(--cd-text-faint, #a0a0a0);
+}
+
+#cdConnBtn {
+  padding: 5px 14px;
+  font-size: 10px;
+  font-family: var(--cd-mono);
+  font-weight: 600;
+  letter-spacing: 1px;
+  background: var(--cd-accent);
+  color: #fff;
+  border: 1px solid var(--cd-accent);
+  cursor: pointer;
+  border-radius: 3px;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+#cdConnBtn.cd-connected {
+  background: transparent;
+  color: var(--cd-text-muted);
+  border-color: var(--cd-border);
+}
+
+#cdConnBtn:hover {
+  opacity: 0.85;
+}
+
+/* Port selector in topbar (hidden visually, kept for JS) */
+#cd-port-wrap {
+  display: none;
+}
+
+/* ─── Alarm banner ─────────────────────────────────────────────────────────── */
+/* Lives at the top of #cd-right as an inline panel: toggling shifts only the
+   JOB info below it (which is flex:1 + scrollable) — the RUN controls stay
+   pinned to the bottom, and the jog / position strip / topbar are unaffected. */
+#cd-alarm-banner {
+  flex-shrink: 0;
+  background: #FEE2E2;
+  border-bottom: 1px solid var(--cd-bad);
+  color: var(--cd-bad);
+  padding: 8px 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+.cd-alarm-icon {
+  font-family: var(--cd-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.cd-alarm-title {
+  font-family: var(--cd-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.cd-alarm-desc {
+  font-size: 11px;
+  color: #7f1d1d;
+  flex-basis: 100%;
+}
+
+#cdUnlockAlarm {
+  padding: 3px 10px;
+  font-size: 10px;
+  font-family: var(--cd-mono);
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  background: var(--cd-bad);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+#cdUnlockAlarm:hover {
+  background: #b91c1c;
+}
+
+/* ─── Position strip ───────────────────────────────────────────────────────── */
+#cd-position-strip {
+  display: flex;
+  background: var(--cd-panel);
+  border-bottom: 1px solid var(--cd-border);
+  flex-shrink: 0;
+}
+
+.cd-axis-readout {
+  flex: 1;
+  padding: 8px 12px;
+  border-right: 1px solid var(--cd-border);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  position: relative;
+  transition: opacity 0.2s;
+}
+
+.cd-axis-readout.cd-disabled {
+  opacity: 0.5;
+}
+
+.cd-axis-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: -1px;
+  height: 2px;
+}
+
+.cd-axis-bar-x { background: var(--cd-axis-x); }
+.cd-axis-bar-y { background: var(--cd-axis-y); }
+.cd-axis-bar-z { background: var(--cd-axis-z); }
+
+.cd-axis-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cd-axis-label {
+  font-family: var(--cd-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.cd-axis-x .cd-axis-label { color: var(--cd-axis-x); }
+.cd-axis-y .cd-axis-label { color: var(--cd-axis-y); }
+.cd-axis-z .cd-axis-label { color: var(--cd-axis-z); }
+
+.cd-axis-set0 {
+  font-size: 8px;
+  padding: 2px 5px;
+  font-family: var(--cd-mono);
+  font-weight: 500;
+  background: transparent;
+  border: 1px solid var(--cd-border);
+  color: var(--cd-text-muted);
+  cursor: pointer;
+  letter-spacing: 0.5px;
+  border-radius: 2px;
+}
+
+.cd-axis-set0:hover {
+  border-color: var(--cd-accent);
+  color: var(--cd-accent);
+}
+
+.cd-axis-set0:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.cd-axis-value {
+  font-family: var(--cd-mono);
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--cd-text-faint);
+  letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  padding: 2px 0;
+}
+
+.cd-axis-x .cd-axis-value { color: var(--cd-axis-x); }
+.cd-axis-y .cd-axis-value { color: var(--cd-axis-y); }
+.cd-axis-z .cd-axis-value { color: var(--cd-axis-z); }
+
+.cd-axis-wcs {
+  font-family: var(--cd-mono);
+  font-size: 9px;
+  color: var(--cd-text-faint);
+}
+
+#cd-feed-display {
+  width: 180px;
+  flex-shrink: 0;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cd-section-label {
+  font-family: var(--cd-mono);
+  font-size: 9px;
+  color: var(--cd-text-muted);
+  letter-spacing: 1px;
+  font-weight: 600;
+}
+
+.cd-feed-value {
+  font-family: var(--cd-mono);
+  font-size: 20px;
+  color: var(--cd-text);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.cd-feed-unit {
+  font-size: 9px;
+  color: var(--cd-text-faint);
+  margin-left: 4px;
+}
+
+.cd-feed-meta {
+  font-family: var(--cd-mono);
+  font-size: 9px;
+  color: var(--cd-text-faint);
+}
+
+/* ─── Main 3-column ────────────────────────────────────────────────────────── */
+#cd-main {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+/* ─── Left panel ───────────────────────────────────────────────────────────── */
+#cd-left {
+  width: 260px;
+  flex-shrink: 0;
+  background: var(--cd-panel);
+  border-right: 1px solid var(--cd-border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.cd-panel-section {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--cd-border);
+}
+
+.cd-panel-section-grow {
+  flex: 1;
+  border-bottom: none;
+}
+
+/* Section title (orange dot + LABEL) */
+.cd-section-title {
+  font-family: var(--cd-mono);
+  font-size: 10px;
+  color: var(--cd-accent);
+  letter-spacing: 1.5px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cd-dot {
+  width: 4px;
+  height: 4px;
+  background: var(--cd-accent);
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.cd-status-tag {
+  color: var(--cd-text-faint);
+  font-size: 8.5px;
+  letter-spacing: 0.5px;
+  margin-left: auto;
+}
+
+/* ─── Jog grid ─────────────────────────────────────────────────────────────── */
+.cd-jog-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 0;
+}
+
+.cd-jog-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 46px);
+  grid-template-rows: repeat(3, 46px);
+  gap: 4px;
+}
+
+.cd-jog-btn {
+  width: 46px;
+  height: 46px;
+  border: 1px solid var(--cd-border);
+  background: var(--cd-panel);
+  font-family: var(--cd-mono);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  transition: border-color 0.1s, background 0.1s;
+}
+
+.cd-jog-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.cd-jog-btn.cd-jog-x { color: var(--cd-axis-x); }
+.cd-jog-btn.cd-jog-y { color: var(--cd-axis-y); }
+.cd-jog-btn.cd-jog-z { color: var(--cd-axis-z); }
+
+.cd-jog-btn:hover:not(:disabled) {
+  border-color: var(--cd-accent);
+  background: var(--cd-accent-soft);
+}
+
+.cd-jog-home {
+  width: 46px;
+  height: 46px;
+  background: var(--cd-accent-soft);
+  border: 1px solid var(--cd-accent);
+  color: var(--cd-accent);
+  font-family: var(--cd-mono);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 1px;
+  border-radius: 3px;
+  transition: background 0.1s;
+}
+
+.cd-jog-home:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.cd-jog-home:hover:not(:disabled) {
+  background: var(--cd-accent-dim);
+}
+
+.cd-z-column {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cd-z-label {
+  width: 56px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--cd-mono);
+  font-size: 10px;
+  color: var(--cd-text-faint);
+  letter-spacing: 1.2px;
+}
+
+/* Pen column — sits next to Z column in the jog row. Taller buttons with
+   big directional arrow + label + saved Z hint. */
+/* Z / Pen grid — 2×2 portrait buttons.
+   Left column = Z jog (UP/DOWN). Right column = PEN presets with live value.
+   All four buttons share the same tall footprint for consistent spacing. */
+.cd-zpen-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.cd-pen-row {
+  display: flex;
+  gap: 4px;
+  height: 48px;
+}
+
+.cd-pen-edit-trigger {
+  flex-shrink: 0;
+  width: 46px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+  background: var(--cd-panel);
+}
+
+.cd-pen-edit-up {
+  color: var(--cd-text);
+  border: 1px solid var(--cd-border-strong);
+}
+.cd-pen-edit-up:hover {
+  background: var(--cd-panel-alt);
+  border-color: var(--cd-text);
+}
+
+.cd-pen-edit-down {
+  color: var(--cd-accent);
+  border: 1px solid var(--cd-accent-dim);
+}
+.cd-pen-edit-down:hover {
+  background: var(--cd-accent-soft);
+  border-color: var(--cd-accent);
+}
+
+.cd-pen-edit-pump {
+  color: var(--cd-bad);
+  border: 1px solid #FECACA;
+}
+.cd-pen-edit-pump:hover {
+  background: #FEF2F2;
+  border-color: var(--cd-bad);
+}
+
+.cd-jog-btn.cd-jog-pen {
+  flex: 1;
+}
+
+.cd-jog-btn.cd-jog-pen,
+.cd-jog-btn.cd-jog-zpen {
+  width: auto;
+  height: auto;
+  padding: 4px 8px;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  line-height: 1;
+  justify-content: flex-start;
+}
+
+.cd-zpen-arrow {
+  flex-shrink: 0;
+  width: 18px;
+  height: 22px;
+}
+
+.cd-zpen-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  font-family: var(--cd-mono);
+  text-align: left;
+  line-height: 1.15;
+}
+
+.cd-zpen-val {
+  display: block;
+  font-weight: 700;
+  font-size: 14px;
+  color: inherit;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+
+/* ─── Z-height edit popover ─────────────────────────────────────────────── */
+.cd-zpen-popover {
+  position: fixed;
+  z-index: 9999;
+  width: 210px;
+  background: var(--cd-panel);
+  border: 1px solid var(--cd-border-strong);
+  border-radius: 8px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.22);
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.cd-zpen-popover.is-open {
+  display: flex;
+}
+
+.cd-zpen-pop-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 12px 7px;
+  border-bottom: 1px solid var(--cd-border);
+}
+
+.cd-zpen-pop-title {
+  font-family: var(--cd-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: var(--cd-text-muted);
+}
+
+.cd-zpen-pop-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--cd-text-faint);
+  padding: 2px 4px;
+  line-height: 1;
+  border-radius: 3px;
+}
+
+.cd-zpen-pop-close:hover {
+  color: var(--cd-text);
+  background: var(--cd-panel-alt);
+}
+
+.cd-zpen-pop-body {
+  padding: 12px 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cd-zpen-pop-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--cd-panel-alt);
+  border: 1px solid var(--cd-border);
+  border-radius: 5px;
+  padding: 8px 12px;
+  transition: border-color 0.15s;
+}
+
+.cd-zpen-pop-field:focus-within {
+  border-color: var(--cd-border-strong);
+}
+
+.cd-zpen-pop-input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: var(--cd-mono);
+  font-size: 26px;
+  font-weight: 700;
+  text-align: right;
+  appearance: textfield;
+  -moz-appearance: textfield;
+  padding: 0;
+  line-height: 1;
+}
+
+.cd-zpen-pop-input::-webkit-inner-spin-button,
+.cd-zpen-pop-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.cd-zpen-pop-unit {
+  font-family: var(--cd-mono);
+  font-size: 11px;
+  color: var(--cd-text-faint);
+  flex-shrink: 0;
+  align-self: flex-end;
+  padding-bottom: 2px;
+}
+
+.cd-zpen-pop-nudges {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+
+.cd-zpen-pop-nudge {
+  background: var(--cd-panel-alt);
+  border: 1px solid var(--cd-border);
+  border-radius: 3px;
+  font-family: var(--cd-mono);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 5px 0;
+  color: var(--cd-text-muted);
+  transition: background 0.1s, color 0.1s;
+}
+
+.cd-zpen-pop-nudge:hover {
+  color: var(--cd-text);
+  background: var(--cd-panel);
+  border-color: var(--cd-border-strong);
+}
+
+.cd-zpen-pop-footer {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px 10px;
+}
+
+.cd-zpen-pop-cancel {
+  flex: 1;
+  background: none;
+  border: 1px solid var(--cd-border);
+  border-radius: 4px;
+  font-family: var(--cd-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  cursor: pointer;
+  padding: 7px;
+  color: var(--cd-text-muted);
+  transition: background 0.1s;
+}
+
+.cd-zpen-pop-cancel:hover {
+  background: var(--cd-panel-alt);
+}
+
+.cd-zpen-pop-apply {
+  flex: 2;
+  border-radius: 4px;
+  font-family: var(--cd-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  cursor: pointer;
+  padding: 7px;
+  transition: filter 0.1s;
+  border: none;
+}
+
+/* Z+ / Z− keep their blue axis tint. */
+.cd-jog-btn.cd-jog-zpen {
+  color: var(--cd-axis-z);
+  border-color: var(--cd-border);
+}
+
+.cd-jog-btn.cd-jog-zpen:hover:not(:disabled) {
+  background: #EFF4FF;
+  border-color: var(--cd-axis-z);
+}
+
+.cd-jog-btn.cd-jog-pen .cd-pen-arrow {
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+  font-family: var(--cd-mono);
+  flex-shrink: 0;
+}
+
+.cd-jog-btn.cd-jog-pen .cd-pen-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+
+.cd-jog-btn.cd-jog-pen .cd-pen-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  line-height: 1;
+}
+
+.cd-jog-btn.cd-jog-pen .cd-pen-hint {
+  font-size: 10px;
+  color: var(--cd-text-faint);
+  font-weight: 500;
+  letter-spacing: 0.4px;
+  line-height: 1;
+}
+
+.cd-jog-btn.cd-jog-pen-up {
+  color: var(--cd-text);
+  border-color: var(--cd-border-strong);
+}
+
+.cd-jog-btn.cd-jog-pen-up:hover:not(:disabled) {
+  background: var(--cd-panel-alt);
+  border-color: var(--cd-text);
+}
+
+.cd-jog-btn.cd-jog-pen-down {
+  color: var(--cd-accent);
+  border-color: var(--cd-accent-dim);
+}
+
+.cd-jog-btn.cd-jog-pen-down:hover:not(:disabled) {
+  background: var(--cd-accent-soft);
+  border-color: var(--cd-accent);
+}
+
+.cd-jog-btn.cd-jog-pen-pump {
+  color: var(--cd-bad);
+  border-color: #FECACA;
+}
+
+.cd-jog-btn.cd-jog-pen-pump:hover:not(:disabled) {
+  background: #FEF2F2;
+  border-color: var(--cd-bad);
+}
+
+/* Canvas status strip (GRID / VIEW / state chip) — overlays the right side of
+   the existing Metro4 ribbon tab bar without interfering with Metro4's DOM. */
+#cd-center #controlLogs {
+  position: relative;
+}
+
+#cd-center .cd-canvas-status {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  font-family: var(--cd-mono);
+  font-size: 9.5px;
+  letter-spacing: 1px;
+  color: var(--cd-text-faint);
+  background: var(--cd-panel);
+  border-bottom: 1px solid var(--cd-border);
+  border-left: 1px solid var(--cd-border);
+  pointer-events: none;
+  z-index: 5;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+#cd-center .cd-canvas-status span {
+  white-space: nowrap;
+}
+
+#cd-center .cd-canvas-status-sep {
+  color: var(--cd-border-strong);
+  font-weight: 400;
+}
+
+#cd-center .cd-canvas-state {
+  color: var(--cd-accent);
+  font-weight: 600;
+}
+
+#cd-center .cd-canvas-state.cd-live  { color: var(--cd-good); }
+#cd-center .cd-canvas-state.cd-hold  { color: var(--cd-amber); }
+#cd-center .cd-canvas-state.cd-scrub { color: var(--cd-axis-z); }
+
+/* 3D View: cream tab with a white canvas filling the pane.
+   Border + contour live in the Three.js scene (simpler — no CSS sizing fight). */
+#cd-center #tab-three {
+  background: var(--cd-bg) !important;
+  padding: 0 !important;
+  position: relative;
+  overflow: hidden !important;
+}
+
+#cd-center #renderArea {
+  background: var(--cd-bg) !important;
+  overflow: hidden !important;
+  margin: 0 !important;
+  flex: 1 !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+}
+
+#cd-center #tab-three #renderArea canvas {
+  display: block !important;
+}
+
+/* ─── Step / Units ─────────────────────────────────────────────────────────── */
+.cd-sub-section {
+  margin-top: 8px;
+}
+
+.cd-sub-label {
+  font-family: var(--cd-mono);
+  font-size: 9.5px;
+  color: var(--cd-text-muted);
+  letter-spacing: 1.2px;
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.cd-step-row {
+  display: flex;
+  gap: 4px;
+}
+
+.cd-step-btn,
+.cd-unit-btn {
+  flex: 1;
+  padding: 9px 4px;
+  font-size: 11px;
+  font-family: var(--cd-mono);
+  font-weight: 500;
+  background: var(--cd-panel-alt);
+  color: var(--cd-text);
+  border: 1px solid var(--cd-border);
+  cursor: pointer;
+  letter-spacing: 0.4px;
+  border-radius: 3px;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+.cd-step-btn:disabled,
+.cd-unit-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.cd-step-btn.cd-step-active,
+.cd-unit-btn.cd-unit-active {
+  background: var(--cd-accent);
+  color: #fff;
+  border-color: var(--cd-accent);
+}
+
+.cd-step-btn:hover:not(:disabled):not(.cd-step-active),
+.cd-unit-btn:hover:not(:disabled):not(.cd-unit-active) {
+  background: var(--cd-panel-hi);
+}
+
+/* ─── Utility buttons ──────────────────────────────────────────────────────── */
+.cd-util-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.cd-util-btn {
+  padding: 7px 8px;
+  background: var(--cd-panel-alt);
+  border: 1px solid var(--cd-border);
+  color: var(--cd-text);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  border-radius: 3px;
+  text-align: left;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.cd-util-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.cd-util-btn:hover:not(:disabled) {
+  background: var(--cd-accent-soft);
+  border-color: var(--cd-accent);
+}
+
+.cd-util-btn.cd-active {
+  background: var(--cd-accent-soft);
+  border-color: var(--cd-accent);
+  color: var(--cd-accent);
+}
+
+.cd-util-label {
+  font-family: var(--cd-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.cd-util-hint {
+  font-family: var(--cd-mono);
+  font-size: 8.5px;
+  color: var(--cd-text-faint);
+  letter-spacing: 0.3px;
+}
+
+/* ─── Override sliders ─────────────────────────────────────────────────────── */
+.cd-vsliders-row {
+  display: flex;
+  gap: 4px;
+  justify-content: space-between;
+}
+
+.cd-vslider {
+  background: var(--cd-panel);
+  border: 1px solid var(--cd-border);
+  padding: 8px 6px 10px;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  transition: opacity 0.2s;
+}
+
+.cd-vslider.cd-disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.cd-vslider-label {
+  font-family: var(--cd-mono);
+  font-size: 8.5px;
+  color: var(--cd-text-muted);
+  letter-spacing: 1px;
+  font-weight: 600;
+}
+
+.cd-vslider-track {
+  position: relative;
+  height: 96px;
+  width: 24px;
+  display: flex;
+  justify-content: center;
+}
+
+.cd-vslider-input {
+  -webkit-appearance: slider-vertical;
+  appearance: slider-vertical;
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 24px;
+  height: 96px;
+  padding: 0;
+  margin: 0;
+  cursor: ns-resize;
+  accent-color: var(--cd-accent);
+}
+
+#cd-fro-wrap .cd-vslider-input { accent-color: var(--cd-axis-y); }
+#cd-tro-wrap .cd-vslider-input { accent-color: var(--cd-axis-z); }
+
+.cd-vslider-nudge-row {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.cd-vslider-nudge {
+  font-family: var(--cd-mono);
+  font-size: 12px;
+  font-weight: 700;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--cd-border);
+  color: var(--cd-text-muted);
+  cursor: pointer;
+  border-radius: 2px;
+  padding: 0;
+  line-height: 1;
+}
+
+.cd-vslider-nudge:hover {
+  border-color: var(--cd-accent);
+  color: var(--cd-accent);
+}
+
+.cd-vslider-val {
+  font-family: var(--cd-mono);
+  font-size: 11px;
+  color: var(--cd-text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.cd-vslider-val:hover .cd-vslider-num {
+  text-decoration: underline dotted var(--cd-text-faint);
+}
+
+.cd-vslider-edit {
+  width: 34px;
+  font-family: var(--cd-mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  border: 1px solid var(--cd-accent);
+  border-radius: 2px;
+  padding: 0 2px;
+  outline: none;
+  color: var(--cd-text);
+  background: var(--cd-panel);
+}
+
+.cd-vslider-unit {
+  color: var(--cd-text-faint);
+  font-size: 8px;
+}
+
+.cd-vslider-reset {
+  font-family: var(--cd-mono);
+  font-size: 7.5px;
+  padding: 1px 4px;
+  letter-spacing: 0.5px;
+  background: transparent;
+  border: 1px solid var(--cd-border);
+  color: var(--cd-text-muted);
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.cd-vslider-reset:hover {
+  border-color: var(--cd-accent);
+  color: var(--cd-accent);
+}
+
+/* ─── Center panel ─────────────────────────────────────────────────────────── */
+#cd-center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--cd-bg);
+  overflow: hidden;
+}
+
+/* Restyle controlLogs tab strip to match CD */
+#cd-center #controlLogs {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#cd-center #controlLogs > nav[data-role="ribbonmenu"] {
+  flex-shrink: 0;
+}
+
+/* CD tab strip reskin — override Metro4 ribbon nav inside controlLogs */
+#cd-center #controlLogs > nav .tabs-holder {
+  background: var(--cd-panel) !important;
+  border-bottom: 1px solid var(--cd-border) !important;
+  height: 28px !important;
+  display: flex !important;
+  overflow: hidden;
+  flex-wrap: nowrap;
+}
+
+#cd-center #controlLogs > nav .tabs-holder li {
+  list-style: none;
+}
+
+#cd-center #controlLogs > nav .tabs-holder li a {
+  padding: 0 14px !important;
+  height: 28px !important;
+  display: flex !important;
+  align-items: center !important;
+  font-size: 10px !important;
+  font-family: var(--cd-mono) !important;
+  font-weight: 500 !important;
+  letter-spacing: 1px !important;
+  color: var(--cd-text-muted) !important;
+  border: none !important;
+  border-right: 1px solid var(--cd-border) !important;
+  border-bottom: 2px solid transparent !important;
+  text-decoration: none !important;
+  background: transparent !important;
+  text-transform: uppercase !important;
+  white-space: nowrap;
+}
+
+#cd-center #controlLogs > nav .tabs-holder li a i {
+  display: none; /* hide icons, keep text */
+}
+
+#cd-center #controlLogs > nav .tabs-holder li.active a,
+#cd-center #controlLogs > nav .tabs-holder li a.active {
+  color: var(--cd-accent) !important;
+  border-bottom-color: var(--cd-accent) !important;
+  font-weight: 600 !important;
+  background: var(--cd-bg) !important;
+}
+
+#cd-center #controlLogs > nav .content-holder {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+#cd-center #controlLogs > nav .content-holder .section {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* ── Propagate full height down the ribbonmenu → tab-section → content chain ── */
+#cd-center #controlLogs {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+#cd-center #controlLogs > nav[data-role="ribbonmenu"],
+#cd-center #controlLogs > .ribbon-menu {
+  flex: 1;
+  min-height: 0;
+  display: flex !important;
+  flex-direction: column;
+}
+
+#cd-center [data-role="ribbonmenu"] > .content-holder,
+#cd-center .ribbonmenu > .content-holder {
+  flex: 1 !important;
+  min-height: 0;
+  display: flex !important;
+  flex-direction: column;
+}
+
+#cd-center [data-role="ribbonmenu"] > .content-holder > .section.active,
+#cd-center .ribbonmenu > .content-holder > .section.active {
+  flex: 1 !important;
+  min-height: 0;
+  display: flex !important;
+  flex-direction: column;
+  position: relative;
+}
+
+/* Render area / console / editor / macros fill their active section */
+#cd-center #renderArea,
+#cd-center #console,
+#cd-center #editor,
+#cd-center #macros {
+  flex: 1 !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+}
+
+/* Console needs to scroll inside its flex container */
+#cd-center #console {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+/* Bottom exec bar — shown below plot when running */
+#cd-exec-bar {
+  padding: 6px 14px;
+  border-top: 1px solid var(--cd-border);
+  background: var(--cd-panel);
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-shrink: 0;
+  min-height: 28px;
+  font-family: var(--cd-mono);
+  font-size: 10px;
+  color: var(--cd-text-faint);
+}
+
+#cdExecGcode {
+  color: var(--cd-text);
+  font-size: 11px;
+}
+
+#cdExecFeed {
+  color: var(--cd-accent);
+  font-size: 11px;
+}
+
+#cdExecLine {
+  margin-left: auto;
+}
+
+/* Hide the machine illustration overlay in the canvas corner */
+#overlayimg {
+  display: none !important;
+}
+
+/* RUN + Edit Start — merged bloc pinned to the bottom of the right sidebar */
+.cd-run-bottom {
+  margin-top: auto;
+  border-top: 1px solid var(--cd-border);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cd-run-bottom .cd-edit-start-btn {
+  margin-bottom: 4px;
+}
+
+/* ── Edit-start trigger (closed-panel state) ── */
+.cd-scrub-trigger-section {
+  border-top: 1px solid var(--cd-border);
+  padding: 12px 14px;
+  flex-shrink: 0;
+}
+
+.cd-edit-start-btn {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--pc-surface, #fff);
+  border: 1px solid var(--cd-border);
+  border-radius: 4px;
+  color: var(--cd-text);
+  font-family: var(--cd-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.cd-edit-start-btn:hover {
+  background: var(--pc-surface, #fff);
+  border-color: var(--pc-primary, #FF6A00);
+  color: var(--pc-primary, #FF6A00);
+}
+
+/* ── Click-to-edit DRO — contenteditable on the value div itself ── */
+.cd-axis-value {
+  cursor: text;
+  outline: none;
+  caret-color: var(--pc-primary, #FF6A00);
+}
+.cd-axis-value:hover {
+  color: var(--pc-primary, #FF6A00);
+}
+.cd-axis-value.cd-axis-editing {
+  color: var(--pc-primary, #FF6A00);
+}
+
+/* ── Scrub panel (nested inside the bottom RUN bloc) ── */
+.cd-scrub-section {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-shrink: 0;
+  background: var(--pc-surface, #fff);
+  border: 1px solid var(--cd-border);
+  border-radius: 6px;
+  margin-top: 10px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.cd-scrub-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cd-scrub-title {
+  margin: 0 !important;
+  flex: 1;
+  min-width: 0;
+}
+
+.cd-scrub-stop {
+  background: transparent;
+  border: 1px solid var(--cd-border);
+  border-radius: 4px;
+  color: var(--cd-text-muted);
+  font-family: var(--cd-mono);
+  font-size: 9px;
+  padding: 5px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  line-height: 1;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.cd-scrub-stop:hover {
+  border-color: var(--cd-accent);
+  color: var(--cd-accent);
+}
+
+.cd-scrub-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 22px;
+  background: transparent;
+  cursor: pointer;
+  margin: 0;
+  padding: 0;
+  outline: none;
+}
+.cd-scrub-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  background: linear-gradient(to right,
+    var(--pc-primary, #FF6A00) 0,
+    var(--pc-primary, #FF6A00) var(--pc-slider-fill, 0%),
+    var(--pc-border-default, rgba(0,0,0,0.1)) var(--pc-slider-fill, 0%),
+    var(--pc-border-default, rgba(0,0,0,0.1)) 100%);
+  border-radius: 100px;
+}
+.cd-scrub-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  border: 4px solid var(--pc-primary, #FF6A00);
+  box-sizing: border-box;
+  margin-top: -7px;
+  cursor: grab;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.12);
+}
+.cd-scrub-slider::-moz-range-thumb {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: #fff; border: 4px solid var(--pc-primary, #FF6A00);
+  box-sizing: border-box; cursor: grab;
+}
+
+.cd-scrub-steps {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+}
+
+.cd-scrub-step {
+  background: transparent;
+  border: 1px solid var(--cd-border);
+  border-radius: 4px;
+  color: var(--cd-text);
+  font-family: var(--cd-mono);
+  font-size: 10px;
+  padding: 6px 0;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+.cd-scrub-step:hover {
+  background: rgba(0,0,0,0.04);
+  border-color: rgba(0,0,0,0.2);
+}
+
+.cd-scrub-info {
+  font-family: var(--cd-mono);
+  font-size: 11px;
+  color: var(--cd-text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cd-scrub-info .pc-info-row {
+  display: block;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 18px;
+  min-height: 18px;
+}
+
+.cd-scrub-info .pc-info-row-pill {
+  line-height: 22px;
+  min-height: 22px;
+}
+
+.cd-scrub-info .pc-info-row-coords {
+  color: var(--cd-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.cd-scrub-info .pc-info-gcode {
+  color: var(--cd-text-faint);
+  font-style: italic;
+}
+
+.cd-scrub-restart {
+  margin-top: 2px;
+}
+
+
+/* ─── Right panel ──────────────────────────────────────────────────────────── */
+#cd-right {
+  width: 260px;
+  flex-shrink: 0;
+  background: var(--cd-panel);
+  border-left: 1px solid var(--cd-border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Job info section */
+#cd-job-info {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border-bottom: 1px solid var(--cd-border);
+}
+
+.cd-job-card {
+  padding: 10px;
+  background: var(--cd-panel-alt);
+  border: 1px solid var(--cd-border);
+  margin-bottom: 12px;
+  border-radius: 3px;
+}
+
+.cd-job-name {
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cd-job-meta {
+  font-family: var(--cd-mono);
+  font-size: 9px;
+  color: var(--cd-text-faint);
+  margin-top: 2px;
+}
+
+.cd-progress-pct {
+  font-family: var(--cd-mono);
+  font-size: 28px;
+  font-weight: 500;
+  letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--cd-text);
+  line-height: 1;
+}
+
+.cd-progress-pct-unit {
+  font-size: 12px;
+  color: var(--cd-text-faint);
+}
+
+.cd-progress-track {
+  margin-top: 6px;
+  position: relative;
+  height: 6px;
+  background: var(--cd-panel-alt);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.cd-progress-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background: linear-gradient(90deg, var(--cd-accent-hi), var(--cd-accent));
+  border-radius: 2px;
+  transition: width 0.3s linear, background 0.2s;
+  width: 0%;
+}
+
+.cd-progress-fill.cd-paused {
+  background: var(--cd-amber);
+}
+
+.cd-job-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  font-family: var(--cd-mono);
+}
+
+.cd-stat-label {
+  color: var(--cd-text-faint);
+  font-size: 8.5px;
+  letter-spacing: 0.8px;
+}
+
+.cd-stat-val {
+  color: var(--cd-text);
+  font-size: 12px;
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Run controls section */
+#cd-run-controls {
+  background: var(--cd-panel-alt);
+  border-bottom: none;
+  flex-shrink: 0;
+}
+
+.cd-btn-start {
+  width: 100%;
+  padding: 12px;
+  font-size: 13px;
+  font-family: var(--cd-mono);
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  background: var(--cd-accent);
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background 0.1s;
+  margin-bottom: 6px;
+}
+
+.cd-btn-start:disabled {
+  background: var(--cd-panel-hi);
+  color: var(--cd-text-faint);
+  cursor: not-allowed;
+}
+
+.cd-btn-start:hover:not(:disabled) {
+  background: var(--cd-accent-hi);
+}
+
+.cd-btn-row {
+  display: flex;
+  gap: 6px;
+}
+
+.cd-btn-secondary {
+  flex: 1;
+  padding: 7px;
+  font-size: 10px;
+  font-family: var(--cd-mono);
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  background: var(--cd-panel-hi);
+  color: var(--cd-text-faint);
+  border: 1px solid var(--cd-border);
+  border-radius: 3px;
+  cursor: not-allowed;
+}
+
+.cd-btn-pause {
+  width: 100%;
+  padding: 12px;
+  font-size: 13px;
+  font-family: var(--cd-mono);
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  background: var(--cd-amber);
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  transition: background 0.1s;
+}
+
+.cd-btn-pause.cd-resuming {
+  background: var(--cd-accent);
+}
+
+.cd-btn-pause:hover {
+  opacity: 0.88;
+}
+
+.cd-btn-stop {
+  flex: 1;
+  padding: 7px;
+  font-size: 10px;
+  font-family: var(--cd-mono);
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  background: var(--cd-panel);
+  color: var(--cd-bad);
+  border: 1px solid var(--cd-bad);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.cd-btn-stop:hover {
+  background: #fef2f2;
+}
+
+.cd-btn-abort {
+  flex: 1;
+  padding: 7px;
+  font-size: 10px;
+  font-family: var(--cd-mono);
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  background: var(--cd-bad);
+  color: #fff;
+  border: 1px solid var(--cd-bad);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.cd-btn-abort:hover {
+  background: #b91c1c;
+}
+
+/* ─── Abort confirm modal ──────────────────────────────────────────────────── */
+#cd-abort-modal {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.cd-modal-box {
+  background: var(--cd-panel);
+  border: 1px solid var(--cd-bad);
+  padding: 20px;
+  border-radius: 4px;
+  max-width: 340px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+}
+
+.cd-modal-title {
+  font-family: var(--cd-mono);
+  font-weight: 700;
+  color: var(--cd-bad);
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.cd-modal-desc {
+  font-size: 12px;
+  color: var(--cd-text-muted);
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+
+.cd-modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.cd-modal-cancel {
+  padding: 6px 14px;
+  font-size: 11px;
+  font-family: var(--cd-mono);
+  font-weight: 500;
+  background: transparent;
+  border: 1px solid var(--cd-border);
+  color: var(--cd-text);
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.cd-modal-confirm {
+  padding: 6px 14px;
+  font-size: 11px;
+  font-family: var(--cd-mono);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  background: var(--cd-bad);
+  border: 1px solid var(--cd-bad);
+  color: #fff;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+/* ─── Status bar ───────────────────────────────────────────────────────────── */
+#cd-statusbar {
+  height: 22px;
+  background: var(--cd-panel);
+  border-top: 1px solid var(--cd-border);
+  display: flex;
+  align-items: center;
+  font-family: var(--cd-mono);
+  font-size: 10px;
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
+  color: var(--cd-text-muted);
+}
+
+.cd-status-cell {
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-right: 1px solid var(--cd-border);
+  height: 100%;
+}
+
+.cd-status-cell:last-child {
+  border-right: none;
+  border-left: 1px solid var(--cd-border);
+}
+
+.cd-state-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cd-text-faint);
+  transition: background 0.2s, box-shadow 0.2s;
+}
+
+.cd-state-dot.cd-running {
+  background: var(--cd-good);
+  box-shadow: 0 0 5px var(--cd-good);
+}
+
+.cd-state-dot.cd-paused {
+  background: var(--cd-amber);
+}
+
+.cd-state-dot.cd-alarm {
+  background: var(--cd-bad);
+}
+
+.cd-state-dot.cd-idle {
+  background: var(--cd-accent);
+}
+
+.cd-state-label {
+  color: var(--cd-text);
+  font-weight: 600;
+}
+
+/* ─── Scrub-to-restart (inside right panel) ────────────────────────────────── */
+#cd-scrub-wrap {
+  margin-top: 10px;
+  padding: 12px;
+  background: var(--cd-panel);
+  border: 1px solid var(--cd-accent);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(234,88,12,0.10);
+}
+
+.cd-scrub-header {
+  font-family: var(--cd-mono);
+  font-size: 9.5px;
+  color: var(--cd-text-muted);
+  letter-spacing: 1px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cd-scrub-range {
+  width: 100%;
+  height: 24px;
+  margin-bottom: 4px;
+  accent-color: var(--cd-accent);
+}
+
+.cd-scrub-nudges {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 10px;
+  justify-content: center;
+}
+
+.cd-scrub-nudge {
+  flex: 1;
+  padding: 3px 0;
+  font-size: 9px;
+  font-family: var(--cd-mono);
+  font-weight: 600;
+  background: var(--cd-panel-alt);
+  border: 1px solid var(--cd-border);
+  color: var(--cd-text-muted);
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.cd-scrub-nudge:hover {
+  border-color: var(--cd-accent);
+  color: var(--cd-accent);
+}
+
+.cd-scrub-info {
+  font-family: var(--cd-mono);
+  font-size: 10px;
+  color: var(--cd-text);
+  margin-bottom: 4px;
+}
+
+.cd-scrub-gcode {
+  font-family: var(--cd-mono);
+  font-size: 9.5px;
+  color: var(--cd-text-muted);
+  margin-bottom: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cd-btn-restart-here {
+  width: 100%;
+  padding: 9px;
+  font-size: 11px;
+  font-family: var(--cd-mono);
+  font-weight: 700;
+  letter-spacing: 1px;
+  background: var(--cd-accent);
+  color: #fff;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.cd-btn-restart-here:hover {
+  background: var(--cd-accent-hi);
+}
+
+/* ─── Jog disabled state ───────────────────────────────────────────────────── */
+#cd-jog-section.cd-jog-disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}

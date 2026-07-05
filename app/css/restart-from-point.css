@@ -1,0 +1,323 @@
+/* Portrait-Cubes restart-from-point UI + 3D-view floating toolbar.
+   Tokens come from pc-tokens.css (:root). */
+
+.pc-ui {
+  font-family: var(--pc-font);
+  color: var(--pc-text);
+  font-size: 13px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --- Scrubber panel --- */
+.pc-scrubber {
+  position: absolute;
+  top: 68px;
+  left: 12px;
+  width: min(360px, calc(100% - 24px));
+  background: var(--pc-surface);
+  border: 1px solid var(--pc-border-hairline);
+  border-radius: var(--pc-radius-md);
+  box-shadow: var(--pc-shadow-card);
+  padding: var(--pc-space-5);
+  z-index: var(--pc-z-sticky);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pc-space-4);
+}
+
+/* Kill the legacy row wrappers — we lay out with gap on the parent */
+.pc-scrubber-row,
+.pc-scrubber-info {
+  display: contents;
+}
+
+/* Row 1: label */
+.pc-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--pc-text-tertiary);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pc-label i {
+  font-size: 11px;
+  color: var(--pc-primary);
+}
+
+/* Row 2: slider */
+.pc-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 22px; /* large click area to prevent layout jump */
+  background: transparent;
+  cursor: pointer;
+  margin: 0;
+  padding: 0;
+  outline: none;
+}
+
+/* Track — Webkit (gradient gives the left-of-thumb orange fill) */
+.pc-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  background: linear-gradient(
+    to right,
+    var(--pc-primary) 0,
+    var(--pc-primary) var(--pc-slider-fill, 0%),
+    var(--pc-border-subtle) var(--pc-slider-fill, 0%),
+    var(--pc-border-subtle) 100%
+  );
+  border-radius: 100px;
+  border: none;
+}
+
+/* Thumb — Webkit */
+.pc-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--pc-surface);
+  border: 4px solid var(--pc-primary);
+  box-sizing: border-box;
+  margin-top: -7px; /* centers thumb on 4px track */
+  cursor: grab;
+  transition: transform 0.1s, box-shadow 0.15s;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.12);
+}
+
+.pc-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 6px rgba(255,106,0,0.3);
+}
+
+.pc-slider:active::-webkit-slider-thumb {
+  cursor: grabbing;
+  transform: scale(1.15);
+}
+
+/* Track + Thumb — Firefox */
+.pc-slider::-moz-range-track {
+  height: 4px;
+  background: var(--pc-border-subtle);
+  border-radius: 100px;
+  border: none;
+}
+
+.pc-slider::-moz-range-progress {
+  height: 4px;
+  background: var(--pc-primary);
+  border-radius: 100px;
+}
+
+.pc-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--pc-surface);
+  border: 4px solid var(--pc-primary);
+  box-sizing: border-box;
+  cursor: grab;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.12);
+}
+
+.pc-slider:focus { outline: none; }
+
+/* Row 3: line info (two-line block) */
+.pc-info-text {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--pc-text-secondary);
+  line-height: 1.4;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pc-info-text .pc-info-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pc-info-text .pc-info-gcode {
+  font-family: var(--pc-font-mono);
+  font-size: 11px;
+  color: var(--pc-text-tertiary);
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pc-info-text .pc-muted {
+  color: var(--pc-text-tertiary);
+  font-size: 11px;
+}
+
+/* Line pill */
+.pc-pill {
+  display: inline-block;
+  background: rgba(0,0,0,0.06);
+  color: var(--pc-text);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 100px;
+  letter-spacing: 0.2px;
+}
+
+/* Row 4: actions */
+.pc-btn-group {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  margin-top: 2px;
+}
+
+.pc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 9px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.pc-btn i { font-size: 11px; }
+
+.pc-btn-primary {
+  background: var(--pc-primary);
+  color: var(--pc-text-on-accent);
+  border-color: var(--pc-primary);
+  flex: 1;
+  box-shadow: var(--pc-shadow-sm);
+}
+.pc-btn-primary:hover {
+  background: var(--pc-primary-hover);
+  border-color: var(--pc-primary-hover);
+  box-shadow: 0 2px 6px rgba(255,106,0,0.25);
+}
+
+.pc-btn-ghost {
+  background: transparent;
+  color: var(--pc-text-secondary);
+  border-color: var(--pc-border-hairline);
+}
+.pc-btn-ghost:hover {
+  background: rgba(0,0,0,0.03);
+  color: var(--pc-text);
+  border-color: var(--pc-border-strong);
+}
+
+/* --- Editor banner (reuses scrubber language, in-flow card) --- */
+.pc-banner {
+  margin: 0 10px 6px;
+  padding: 10px 14px;
+  background: var(--pc-surface-white);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--pc-border);
+  border-radius: 12px;
+  box-shadow: var(--pc-shadow-lg);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pc-banner .pc-info-text {
+  flex: 1;
+  min-width: 200px;
+}
+
+/* --- Floating nav-bar --- */
+.pc-navbar {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  background: var(--pc-surface-white);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border: 1px solid var(--pc-border-hairline);
+  border-radius: var(--pc-radius-md);
+  box-shadow: var(--pc-shadow-card);
+  padding: 4px;
+  gap: 2px;
+  z-index: var(--pc-z-sticky);
+  user-select: none;
+}
+
+.pc-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--pc-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.pc-icon-btn i {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.pc-icon-btn:hover {
+  background: rgba(0,0,0,0.04);
+  color: var(--pc-text);
+}
+
+/* .pc-icon-btn-accent.active — subtle "this button is currently selected" */
+.pc-icon-btn-accent.active {
+  background: rgba(0,0,0,0.06);
+  color: var(--pc-text);
+  padding: 0 12px;
+}
+
+.pc-icon-btn-accent.active:hover {
+  background: rgba(0,0,0,0.1);
+  color: var(--pc-text);
+}
+
+.pc-icon-caption {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.pc-navbar-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--pc-border-hair);
+  margin: 0 2px;
+  flex-shrink: 0;
+}

@@ -424,6 +424,7 @@ var status = {
     inputs: [],
     overrides: {
       feedOverride: 100, //
+      rapidOverride: 100, //
       spindleOverride: 100, //
       realFeed: 0, //
       realSpindle: 0 //
@@ -498,6 +499,7 @@ var status = {
       type: "",
       ports: "",
       networkDevices: [],
+      virtualPorts: [],
       activePort: "" // or activeIP in the case of wifi/telnet?
     },
     alarm: ""
@@ -513,6 +515,26 @@ var status = {
 };
 
 
+function findVirtualPorts() {
+  const virtual = [];
+  try {
+    const entries = fs.readdirSync('/tmp');
+    for (const name of entries) {
+      const fullPath = '/tmp/' + name;
+      try {
+        const stat = fs.lstatSync(fullPath);
+        if (stat.isSymbolicLink()) {
+          const target = fs.readlinkSync(fullPath);
+          if (/\/dev\/(ttys|pty)/.test(target)) {
+            virtual.push({ path: fullPath, note: '→ ' + target });
+          }
+        }
+      } catch (e) { /* skip unreadable entries */ }
+    }
+  } catch (e) { /* /tmp not accessible */ }
+  return virtual;
+}
+
 async function findPorts() {
   const ports = await SerialPort.list()
   // console.log(ports)
@@ -522,6 +544,7 @@ async function findPorts() {
     status.comms.interfaces.ports[i].img = data.img;
     status.comms.interfaces.ports[i].note = data.note;
   }
+  status.comms.interfaces.virtualPorts = findVirtualPorts();
 }
 findPorts()
 
@@ -550,9 +573,13 @@ checkPowerSettings()
 app.get('/api/version', (req, res) => {
   res.header("Access-Control-Allow-Origin", "*");
   res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  var versionMod = {};
+  try { versionMod = require('./version.js'); } catch (e) { /* no changelog file */ }
   data = {
     "application": "OMD",
     "version": require('./package').version + "-targz",
+    "appVersion": require('./package').version,
+    "changelog": versionMod.CHANGELOG || [],
     "ipaddress": ip.address() + ":" + config.webPort
   }
   res.send(JSON.stringify(data), null, 2);
@@ -812,9 +839,8 @@ io.on("connection", function(socket) {
       title: "OpenBuilds CONTROL: Chromium's GPU Report",
       frame: true,
       autoHideMenuBar: true,
-      //icon: '/app/favicon.png',
       icon: nativeImage.createFromPath(
-        path.join(__dirname, "/app/favicon.png")
+        path.join(__dirname, "/app/icon.png")
       ),
       webgl: true,
       experimentalFeatures: true,
@@ -2048,6 +2074,28 @@ io.on("connection", function(socket) {
     }
   });
 
+  socket.on('rapidOverride', function(data) {
+    if (status.comms.connectionStatus > 0) {
+      switch (status.machine.firmware.type) {
+        case 'grbl':
+          var step = parseInt(data);
+          var target, byte;
+          if (step >= 75) { target = 100; byte = 0x95; }
+          else if (step >= 38) { target = 50; byte = 0x96; }
+          else { target = 25; byte = 0x97; }
+          var current = parseInt(status.machine.overrides.rapidOverride);
+          if (current !== target) {
+            addQRealtime(String.fromCharCode(byte));
+            addQRealtime("?");
+            status.machine.overrides.rapidOverride = target;
+          }
+          break;
+      }
+    } else {
+      debug_log('ERROR: Machine connection not open!');
+    }
+  });
+
   socket.on('spindleOverride', function(data) {
     if (status.comms.connectionStatus > 0) {
       switch (status.machine.firmware.type) {
@@ -3023,18 +3071,35 @@ if (isElectron()) {
 
     function createMenu() {
 
+      var pkgVersion = require('./package').version;
+      electronApp.setAboutPanelOptions({
+        applicationName: electronApp.name,
+        applicationVersion: pkgVersion,
+        version: pkgVersion + '-targz',
+        copyright: 'Targz fork of OpenBuilds CONTROL — AGPL-3.0',
+        iconPath: iconPath
+      });
+
       var template = [{
-        label: "Application",
-        submenu: [{
-          label: "Quit",
-          accelerator: "Command+Q",
-          click: function() {
-            if (appIcon) {
-              appIcon.destroy();
+        label: electronApp.name,
+        submenu: [
+          { role: 'about' },
+          { type: 'separator' },
+          { role: 'hide' },
+          { role: 'hideOthers' },
+          { role: 'unhide' },
+          { type: 'separator' },
+          {
+            label: "Quit",
+            accelerator: "Command+Q",
+            click: function() {
+              if (appIcon) {
+                appIcon.destroy();
+              }
+              electronApp.exit(0);
             }
-            electronApp.exit(0);
           }
-        }]
+        ]
       }, {
         label: "Edit",
         submenu: [{
@@ -3164,15 +3229,14 @@ if (isElectron()) {
         title: "OpenBuilds CONTROL ",
         frame: false,
         autoHideMenuBar: true,
-        //icon: '/app/favicon.png',
         icon: nativeImage.createFromPath(
-          path.join(__dirname, "/app/favicon.png")
+          path.join(__dirname, "/app/icon.png")
         ),
         webgl: true,
         experimentalFeatures: true,
         experimentalCanvasFeatures: true,
         offscreen: true,
-        backgroundColor: "#fff",
+        backgroundColor: "#FFFAF4",
         webPreferences: {
           nodeIntegration: true,
           contextIsolation: false

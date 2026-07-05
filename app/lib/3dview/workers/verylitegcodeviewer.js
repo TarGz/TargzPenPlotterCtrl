@@ -710,6 +710,7 @@ GCodeParser = function(handlers, modecmdhandlers) {
           y: p2.y,
           z: p2.z,
           g: g,
+          distSum: p2.distSum,
           indx: args.indx
         });
       }
