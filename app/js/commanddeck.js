@@ -463,13 +463,16 @@ $(document).ready(function () {
   // Simplest durable push: a plain HTTP POST to an ntfy topic. No account/keys.
   // Server defaults to the public ntfy.sh but is swappable for a self-hosted one.
   // Title stays ASCII (ntfy header constraint); the filename goes in the body.
-  window.cdSendNtfy = function (title, message, cb) {
+  window.cdSendNtfy = function (title, message, cb, opts) {
     var server = (localStorage.getItem('ntfyServer') || 'https://ntfy.sh').replace(/\/+$/, '');
     var topic = localStorage.getItem('ntfyTopic');
     if (!topic) { if (cb) cb(false); return; }
+    opts = opts || {};
+    var headers = { 'Title': title, 'Tags': opts.tags || 'white_check_mark' };
+    if (opts.priority) headers['Priority'] = String(opts.priority);
     fetch(server + '/' + encodeURIComponent(topic), {
       method: 'POST',
-      headers: { 'Title': title, 'Tags': 'white_check_mark' },
+      headers: headers,
       body: message
     })
       .then(function (r) { if (cb) cb(r.ok); })
@@ -482,6 +485,28 @@ $(document).ready(function () {
     var dur = (typeof msToTime === 'function' && ms) ? msToTime(ms) : null;
     var body = (filename || 'Plot') + ' finished' + (dur ? ' in ' + dur : '');
     cdSendNtfy('Plot finished', body);
+  };
+
+  // ─── Failure notification ────────────────────────────────────────────────
+  // A dropped plot is the case where a push actually matters — you walk away
+  // and come back to a half-drawn sheet. One failure produces several signals
+  // (disconnect fires, then the stream fails, then jobComplete lands), so
+  // collapse anything inside a short window into a single push.
+  var _lastFailNotifyAt = 0;
+
+  window.cdNotifyPlotFailed = function (reason) {
+    if (localStorage.getItem('ntfyEnabled') !== 'true') return;
+    if (localStorage.getItem('ntfyFailEnabled') === 'false') return;
+
+    var now = Date.now();
+    if (now - _lastFailNotifyAt < 20000) return;
+    _lastFailNotifyAt = now;
+
+    var name = (typeof loadedFileName !== 'undefined' && loadedFileName) ? loadedFileName : 'Plot';
+    cdSendNtfy('Plot stopped', name + ' — ' + reason, null, {
+      tags: 'rotating_light',
+      priority: 'high'
+    });
   };
 
   // ─── Z-height edit popover ────────────────────────────────────────────────
@@ -678,6 +703,10 @@ $(document).ready(function () {
 
   // ─── CD-aware reconnect helpers ──────────────────────────────────────────
 
+  // Tracks whether the previous status tick had a job running or held, so a
+  // drop to disconnected/ALARM can be told apart from an idle machine.
+  var _cdJobWasLive = false;
+
   // Called by setConnectBar() mirror (see websocket.js additions).
   // Updates CD top bar connection state.
   window.cdUpdateConnection = function (connectionStatus, status) {
@@ -685,6 +714,18 @@ $(document).ready(function () {
     var running = connectionStatus === 3;
     var paused = connectionStatus === 4;
     var alarm = connectionStatus === 5;
+
+    // Push a phone alert if a job that was live drops out from under us.
+    // Only these two transitions — a normal finish lands on IDLE and is
+    // handled by the jobComplete handler instead.
+    if (_cdJobWasLive && typeof cdNotifyPlotFailed === 'function') {
+      if (!connected) {
+        cdNotifyPlotFailed('machine disconnected mid-plot');
+      } else if (alarm) {
+        cdNotifyPlotFailed('controller went into ALARM');
+      }
+    }
+    _cdJobWasLive = running || paused;
 
     $('#cdConnDot').toggleClass('cd-connected', connected);
     $('#cdConnLabel').toggleClass('cd-connected', connected);

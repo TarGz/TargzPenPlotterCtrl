@@ -3,6 +3,15 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-07-28',
+      version: '1.15.0',
+      changes: [
+        'Closes #18 — ntfy now also pushes when a plot does NOT finish, which is the case where a phone alert actually matters. Three signals fire it: jobComplete with data.failed (abort or stream failure), the connection dropping while the job is running or held (machine disconnected mid-plot), and the controller entering ALARM while running. The last two hang off the periodic status tick that drives cdUpdateConnection, which keeps reporting after a port drops. Failure pushes use the rotating_light tag and Priority: high so they read differently from the success message; cdSendNtfy gained an optional opts argument for tags/priority and existing callers are unchanged. A single failure emits several signals in sequence, so pushes are collapsed to one per 20 s window.',
+        'Add a "Notify on failure / disconnect" toggle in Settings › NOTIFICATIONS, stored as ntfyFailEnabled and defaulting to ON — so it is live as soon as notifications are enabled at all.',
+        'Default ntfy topic is now the fixed "targz-plot-ended" instead of a per-install random string, so the topic to subscribe to is the same on every machine. Only affects fresh installs: an existing randomly-generated topic in localStorage is left alone. Note the public ntfy.sh treats the topic as the only access control, so this default is memorable rather than secret.'
+      ]
+    },
+    {
+      date: '2026-07-28',
       version: '1.14.0',
       changes: [
         'Closes #6 — EDIT START is now EDIT GCODE: the scrub panel gained an END marker alongside START, so a plot can be trimmed at both ends instead of only restarted from a point. START / END are tabs — clicking one hands the slider and the ± step buttons over to it — and each carries a typeable line-number field (Enter or blur commits, Escape reverts). Lines with no toolpath point (comments, M-codes) snap to the nearest motion line; the markers cannot cross. startFromHere(start, end) truncates the generated file at END and appends G90 + G0 Z<penUpZ>, because cutting the file short drops whatever footer it had and would otherwise leave the pen down on the paper.',

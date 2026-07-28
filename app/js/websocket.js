@@ -339,9 +339,12 @@ function initSocket() {
         cdRunParkMove();
       }
 
-      // Push a phone notification on clean completion.
+      // Push a phone notification on clean completion, or an alert if the job
+      // ended early (abort / stream failure).
       if (!data.failed && typeof cdNotifyPlotDone === 'function') {
         cdNotifyPlotDone(loadedFileName, runTime);
+      } else if (data.failed && typeof cdNotifyPlotFailed === 'function') {
+        cdNotifyPlotFailed('plot did not finish (aborted or failed)');
       }
 
     }

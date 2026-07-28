@@ -420,8 +420,9 @@
 
   // ═══ Section: Notifications ═══════════════════════════════════════════════
   // Phone push via ntfy (see cdSendNtfy in commanddeck.js). A topic is a shared
-  // secret address on the ntfy server; we generate a random one on first open so
-  // the user only has to subscribe to it in the ntfy app.
+  // address on the ntfy server, and on the public ntfy.sh anyone who knows it can
+  // read or post to it — the default is memorable rather than secret, so swap it
+  // for something unguessable if that matters.
   function buildNotifySection() {
     function textRow(key, name, placeholder) {
       return '<div class="cd-set-row">' +
@@ -447,7 +448,14 @@
                 '<div class="cd-set-toggle-hint">Subscribe to the topic in the ntfy app first</div>' +
               '</div>' +
             '</label>' +
-            textRow('ntfyTopic', 'Topic', 'targz-plot-xxxx') +
+            '<label class="cd-set-toggle-row" data-notify-fail-toggle>' +
+              '<button type="button" class="cd-set-toggle"></button>' +
+              '<div class="cd-set-toggle-text">' +
+                '<div class="cd-set-toggle-label">Notify on failure / disconnect</div>' +
+                '<div class="cd-set-toggle-hint">Alert if the plot aborts, the machine disconnects or the controller alarms mid-job</div>' +
+              '</div>' +
+            '</label>' +
+            textRow('ntfyTopic', 'Topic', 'targz-plot-ended') +
             textRow('ntfyServer', 'Server', 'https://ntfy.sh') +
             '<div class="cd-set-row" style="justify-content:flex-end;">' +
               '<button class="cd-set-btn cd-set-btn-primary" id="cdNotifyTest">SEND TEST</button>' +
@@ -466,6 +474,13 @@
       localStorage.setItem('ntfyEnabled', (!cur).toString());
       refreshNotify();
     });
+    $('#cd-settings-layout').on('click', '[data-notify-fail-toggle]', function (e) {
+      e.preventDefault();
+      // Defaults on, so an unset value counts as enabled.
+      var cur = localStorage.getItem('ntfyFailEnabled') !== 'false';
+      localStorage.setItem('ntfyFailEnabled', (!cur).toString());
+      refreshNotify();
+    });
     $('#cd-settings-layout').on('change', 'input[data-notify]', function () {
       localStorage.setItem($(this).data('notify'), $.trim($(this).val()));
     });
@@ -481,11 +496,12 @@
   }
 
   function refreshNotify() {
-    // Generate a stable random topic on first open so the user has something to subscribe to.
+    // Seed a default topic on first open so there is something to subscribe to.
     if (!localStorage.getItem('ntfyTopic')) {
-      localStorage.setItem('ntfyTopic', 'targz-plot-' + Math.random().toString(36).slice(2, 9));
+      localStorage.setItem('ntfyTopic', 'targz-plot-ended');
     }
     $('[data-notify-toggle] .cd-set-toggle').toggleClass('on', localStorage.getItem('ntfyEnabled') === 'true');
+    $('[data-notify-fail-toggle] .cd-set-toggle').toggleClass('on', localStorage.getItem('ntfyFailEnabled') !== 'false');
     var vals = {
       ntfyTopic: localStorage.getItem('ntfyTopic') || '',
       ntfyServer: localStorage.getItem('ntfyServer') || 'https://ntfy.sh'
