@@ -1017,6 +1017,61 @@
                         <button id="resetViewBtn" class="pc-icon-btn" onclick="resetView(object)" title="Resets camera angle and zoom">
                           <i class="fas fa-expand"></i><span class="pc-icon-caption">Reset View</span>
                         </button>
+                        <span class="pc-navbar-sep"></span>
+                        <button id="cdPhotoBtn" class="pc-icon-btn" title="Overlay a photo of the sheet under the toolpath">
+                          <i class="fas fa-image"></i><span class="pc-icon-caption">Photo</span>
+                        </button>
+                      </div>
+
+                      <!-- Reference photo: align a photo of the half-drawn sheet
+                           to the toolpath to find where the pen stopped -->
+                      <div id="cd-photo-panel" class="cd-photo-panel" style="display:none;">
+                        <div class="cd-photo-head">
+                          <span class="cd-photo-title">REFERENCE PHOTO</span>
+                          <button id="cdPhotoClose" class="cd-photo-close" type="button">✕</button>
+                        </div>
+
+                        <label class="cd-photo-file-btn">
+                          LOAD IMAGE…
+                          <input type="file" id="cdPhotoFile" accept="image/*">
+                        </label>
+
+                        <div id="cd-photo-controls" style="display:none;">
+                          <div class="cd-photo-row">
+                            <span class="cd-photo-label">CENTRE X</span>
+                            <input type="number" id="cdPhotoX" step="0.5" value="0">
+                            <button class="cd-photo-nudge" data-axis="x" data-delta="-1">−</button>
+                            <button class="cd-photo-nudge" data-axis="x" data-delta="1">+</button>
+                          </div>
+                          <div class="cd-photo-row">
+                            <span class="cd-photo-label">CENTRE Y</span>
+                            <input type="number" id="cdPhotoY" step="0.5" value="0">
+                            <button class="cd-photo-nudge" data-axis="y" data-delta="-1">−</button>
+                            <button class="cd-photo-nudge" data-axis="y" data-delta="1">+</button>
+                          </div>
+                          <div class="cd-photo-row">
+                            <span class="cd-photo-label">WIDTH</span>
+                            <input type="number" id="cdPhotoW" step="1" value="100">
+                            <span class="cd-photo-unit">mm</span>
+                          </div>
+                          <div class="cd-photo-row">
+                            <span class="cd-photo-label">HEIGHT</span>
+                            <span id="cdPhotoH" class="cd-photo-derived">—</span>
+                          </div>
+                          <div class="cd-photo-row">
+                            <span class="cd-photo-label">ROTATE</span>
+                            <input type="number" id="cdPhotoRot" step="0.5" value="0">
+                            <span class="cd-photo-unit">°</span>
+                          </div>
+                          <div class="cd-photo-row">
+                            <span class="cd-photo-label">OPACITY</span>
+                            <input type="range" id="cdPhotoOpacity" min="5" max="100" value="60">
+                          </div>
+                          <div class="cd-photo-actions">
+                            <button id="cdPhotoFit" type="button">FIT TO DRAWING</button>
+                            <button id="cdPhotoRemoveBtn" type="button">REMOVE</button>
+                          </div>
+                        </div>
                       </div>
                       <div id="conetext" style="position:absolute;top:0px;left:0px; padding: 0px; display:none; z-index:100;"></div>
                     </div>
@@ -1999,6 +2054,7 @@
   <script type="text/javascript" src="wizards/resume/resume.js"></script>
 
   <script type="text/javascript" src="js/restart-from-point.js"></script>
+  <script type="text/javascript" src="js/plot-photo.js"></script>
 
   <script type="text/javascript" src="js/toolchange.js"></script>
 

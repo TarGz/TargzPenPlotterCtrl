@@ -461,6 +461,9 @@ function animate() {
         scene.add(object)
       }
 
+      // Keep an aligned reference photo across a re-parse of the file.
+      if (typeof plotPhotoReattach === 'function') plotPhotoReattach();
+
       clearSceneFlag = false;
     } // end clearSceneFlag
 

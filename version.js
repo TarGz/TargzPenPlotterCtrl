@@ -3,6 +3,15 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-07-28',
+      version: '1.16.0',
+      changes: [
+        'Closes #19 — REFERENCE PHOTO: load a photo of a half-finished sheet and align it under the toolpath preview, so a restart point can be read off the paper instead of guessed at from thousands of G-code lines. New Photo button in the 3D view toolbar opens a panel with centre X/Y (± 1 mm nudges), width (height derived from the image aspect), rotation and opacity. Loading an image auto-fits it to the toolpath bounding box — the photo is of that drawing, so the drawn extents are the best first guess. Drop opacity to ~50% and scrub START / END until the marker sits at the last inked line.',
+        'The overlay is a unit PlaneGeometry scaled to size, so resizing never rebuilds geometry. It is placed below the LOWEST toolpath Z (bbbox2.min.z - 0.5) rather than a fixed depth, because pen-down Z is typically negative and a hardcoded shallow offset would bury the drawing under the photo. transparent:true puts it in three\'s transparent pass so it draws after the opaque white work-area plane (which would otherwise paint over it) while still sorting behind the toolpath lines. Loading new G-code sets clearSceneFlag and strips the scene, so plotPhotoReattach() re-adds the mesh and an alignment survives a re-parse.',
+        'No perspective correction — shoot the sheet square-on, position/scale/rotation cannot undo camera tilt. The image itself is not persisted across restarts.'
+      ]
+    },
+    {
+      date: '2026-07-28',
       version: '1.15.1',
       changes: [
         'EDIT GCODE: the 3D camera no longer follows the START / END markers. Moving the slider panned the view to centre on each marker (cdScrubFollow), and closing the panel snapped back to overview framing (cdScrubResetCamera via resetView) — so you could not frame a detail and scrub through it. Camera position and zoom now stay exactly where you put them; the cone still tracks the active marker. Both helpers were removed from viewer.js along with their only call sites.'
