@@ -2,6 +2,14 @@ module.exports = {
   version: require('./package.json').version,
   CHANGELOG: [
     {
+      date: '2026-07-28',
+      version: '1.14.0',
+      changes: [
+        'Closes #6 — EDIT START is now EDIT GCODE: the scrub panel gained an END marker alongside START, so a plot can be trimmed at both ends instead of only restarted from a point. START / END are tabs — clicking one hands the slider and the ± step buttons over to it — and each carries a typeable line-number field (Enter or blur commits, Escape reverts). Lines with no toolpath point (comments, M-codes) snap to the nearest motion line; the markers cannot cross. startFromHere(start, end) truncates the generated file at END and appends G90 + G0 Z<penUpZ>, because cutting the file short drops whatever footer it had and would otherwise leave the pen down on the paper.',
+        'The 3D toolpath now ghosts everything outside the START→END range, keeping only the part that will actually be plotted saturated. Previously dimToolpathBefore ghosted the segment after the cursor despite its name — the colour buffer runs in linePoints order (convertParsedDataToObject), so the original direction was inverted.'
+      ]
+    },
+    {
       date: '2026-07-05',
       version: '1.13.0',
       changes: [

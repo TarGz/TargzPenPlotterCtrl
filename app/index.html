@@ -1088,15 +1088,27 @@
                   </div>
                 </div>
 
-                <button id="cdEditStartBtn" class="cd-edit-start-btn">✎ EDIT START</button>
+                <button id="cdEditStartBtn" class="cd-edit-start-btn">✎ EDIT GCODE</button>
 
-                <!-- Scrub to restart point (opens below Edit Start) -->
+                <!-- Trim the plotted range (opens below Edit Gcode) -->
                 <div id="cd-scrub-panel" class="cd-scrub-section" style="display:none;">
                   <div class="cd-scrub-head">
                     <div class="cd-section-title cd-scrub-title">
-                      <i class="fas fa-route"></i> SCRUB TO RESTART POINT
+                      <i class="fas fa-route"></i> EDIT GCODE RANGE
                     </div>
-                    <button id="cdScrubStopBtn" class="cd-scrub-stop" title="Close scrubber">↺ STOP PT</button>
+                    <button id="cdScrubStopBtn" class="cd-scrub-stop" title="Close editor">↺ CANCEL</button>
+                  </div>
+
+                  <!-- Which marker the slider drives; line numbers are directly typeable -->
+                  <div class="cd-scrub-marks">
+                    <div class="cd-scrub-mark is-active" data-mark="start">
+                      <span class="cd-scrub-mark-label">START</span>
+                      <input type="number" id="cdScrubStartLine" class="cd-scrub-mark-input" min="1" step="1" value="1">
+                    </div>
+                    <div class="cd-scrub-mark" data-mark="end">
+                      <span class="cd-scrub-mark-label">END</span>
+                      <input type="number" id="cdScrubEndLine" class="cd-scrub-mark-input" min="1" step="1" value="1">
+                    </div>
                   </div>
 
                   <input type="range" id="restartSlider" class="cd-scrub-slider" min="0" max="100" value="0" oninput="onRestartSliderMove(this.value)">

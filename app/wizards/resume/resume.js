@@ -264,11 +264,23 @@ function validateRecovery(lineNumber) {
 }
 
 
-function startFromHere(lineNumber) {
+// endLine is the last line to plot (1-based, inclusive). Omit or pass -1 to run
+// through to the end of the file.
+function startFromHere(lineNumber, endLine) {
   lineNumber = parseInt(lineNumber);
+  endLine = (endLine === undefined) ? -1 : parseInt(endLine);
+  if (isNaN(endLine)) endLine = -1;
 
   // Validate first
   var validation = validateRecovery(lineNumber);
+  if (endLine > 0) {
+    if (endLine > editor.session.getLength()) {
+      endLine = editor.session.getLength();
+    }
+    if (endLine < lineNumber) {
+      validation.errors.push('END line ' + endLine + ' is before START line ' + lineNumber + '.');
+    }
+  }
   if (validation.errors.length > 0) {
     Metro.dialog.create({
       title: "<i class='fas fa-fw fa-exclamation-triangle fg-red'></i> Cannot Recover",
@@ -340,6 +352,7 @@ function startFromHere(lineNumber) {
   // Store state for redoJob to use
   window._recoveryState = state;
   window._recoveryLineNumber = lineNumber;
+  window._recoveryEndLine = endLine;
 
   // Skip the confirmation dialog — proceed straight to recovery.
   // (Validation errors are still surfaced above via Metro.dialog; warnings
@@ -353,9 +366,10 @@ function escapeHtmlResume(text) {
 }
 
 
-function buildRecoveryGcode(lineNumber, state, headerOnly) {
+function buildRecoveryGcode(lineNumber, state, headerOnly, endLine) {
   var gcode = '';
   var headerLines = [];
+  if (endLine === undefined) endLine = -1;
 
   // Keep header: all lines before the first Z motion
   var headerEnd = state.firstZLine > 0 ? state.firstZLine - 1 : 0;
@@ -364,7 +378,8 @@ function buildRecoveryGcode(lineNumber, state, headerOnly) {
     headerLines.push(line);
   }
 
-  gcode += '; === RECOVERY - Restart from line ' + lineNumber + ' ===\n';
+  gcode += '; === RECOVERY - Lines ' + lineNumber + ' to ' +
+    ((endLine > 0 && endLine < editor.session.getLength()) ? endLine : 'end') + ' ===\n';
   gcode += '; Generated: ' + new Date().toISOString() + '\n';
   gcode += '; Original header lines: 1-' + (headerEnd > 0 ? headerEnd : 1) + '\n';
   gcode += '\n';
@@ -438,10 +453,21 @@ function buildRecoveryGcode(lineNumber, state, headerOnly) {
     return gcode;
   }
 
-  // Append remaining gcode from target line onward
+  // Append gcode from the target line up to the end line (inclusive)
   var totalLines = editor.session.getLength();
-  for (var i = lineNumber - 1; i < totalLines; i++) {
+  var stopLine = (endLine > 0 && endLine < totalLines) ? endLine : totalLines;
+  for (var i = lineNumber - 1; i < stopLine; i++) {
     gcode += editor.session.getLine(i) + '\n';
+  }
+
+  // Cutting the file short drops whatever footer it had, so the pen would be
+  // left down on the paper. Lift it to the configured pen-up height.
+  if (stopLine < totalLines) {
+    var penUp = parseFloat(localStorage.getItem('penUpZ'));
+    if (isNaN(penUp)) penUp = 5;
+    gcode += '\n; --- End of range (line ' + stopLine + ' of ' + totalLines + ') ---\n';
+    gcode += 'G90\n';
+    gcode += 'G0 Z' + penUp + '  ; lift pen\n';
   }
 
   return gcode;
@@ -457,7 +483,7 @@ function redoJob() {
     return;
   }
 
-  var gcode = buildRecoveryGcode(lineNumber, state, false);
+  var gcode = buildRecoveryGcode(lineNumber, state, false, window._recoveryEndLine);
 
   editor.session.setValue("");
   editor.session.setValue(gcode);
@@ -467,5 +493,6 @@ function redoJob() {
   // Clean up
   window._recoveryState = null;
   window._recoveryLineNumber = null;
+  window._recoveryEndLine = null;
 
 }

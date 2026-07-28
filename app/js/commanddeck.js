@@ -606,6 +606,24 @@ $(document).ready(function () {
     if (typeof onRestartSliderMove === 'function') onRestartSliderMove(next);
   });
 
+  // START / END marker tabs — clicking one hands the slider over to it.
+  $('.cd-scrub-mark').on('click', function () {
+    if (typeof setActiveRestartMark === 'function') setActiveRestartMark($(this).data('mark'));
+  });
+
+  // Typed line numbers. Commit on Enter or blur so partial input isn't applied
+  // on every keystroke; Escape restores the marker's current value.
+  $('#cdScrubStartLine, #cdScrubEndLine').on('keydown', function (e) {
+    if (e.which === 13) { $(this).blur(); }
+    else if (e.which === 27) { if (typeof refreshRestartMarkFields === 'function') refreshRestartMarkFields(); $(this).blur(); }
+  }).on('focus', function () {
+    if (typeof setActiveRestartMark === 'function') setActiveRestartMark($(this).closest('.cd-scrub-mark').data('mark'));
+  }).on('blur', function () {
+    var mark = $(this).closest('.cd-scrub-mark').data('mark');
+    if (typeof setRestartMarkFromLine === 'function') setRestartMarkFromLine(mark, $(this).val());
+    if (typeof refreshRestartMarkFields === 'function') refreshRestartMarkFields();
+  });
+
   // Edit Start trigger — opens the scrub panel
   $('#cdEditStartBtn').on('click', function () {
     if (typeof openScrubber === 'function') {

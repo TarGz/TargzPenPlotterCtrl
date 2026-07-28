@@ -1650,6 +1650,80 @@
   color: var(--cd-accent);
 }
 
+/* START / END markers — the active one is what the slider drives */
+.cd-scrub-marks {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+#cd-scrub-panel .cd-scrub-mark {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px 8px;
+  border: 2px solid var(--cd-border);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+#cd-scrub-panel .cd-scrub-mark:hover {
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+/* Active marker — the one the slider and step buttons drive. Needs to read at
+   a glance, so: solid accent border, tinted fill and an accent label. */
+#cd-scrub-panel .cd-scrub-mark.is-active {
+  border-color: var(--pc-primary, #FF6A00);
+  background: rgba(255, 106, 0, 0.10);
+}
+
+#cd-scrub-panel .cd-scrub-mark-label {
+  font-family: var(--cd-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--cd-text-muted);
+}
+
+#cd-scrub-panel .cd-scrub-mark.is-active .cd-scrub-mark-label {
+  color: var(--pc-primary, #FF6A00);
+  font-weight: 700;
+}
+
+/* Metro4 styles bare inputs globally; override it so the field reads as part
+   of the marker box rather than a nested input. */
+#cd-scrub-panel .cd-scrub-mark-input,
+#cd-scrub-panel input.cd-scrub-mark-input[type="number"] {
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  font-family: var(--cd-mono);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  color: var(--cd-text);
+  outline: none;
+  -moz-appearance: textfield;
+}
+
+#cd-scrub-panel .cd-scrub-mark.is-active .cd-scrub-mark-input {
+  color: var(--pc-primary, #FF6A00);
+  font-weight: 700;
+}
+
+#cd-scrub-panel .cd-scrub-mark-input::-webkit-outer-spin-button,
+#cd-scrub-panel .cd-scrub-mark-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 .cd-scrub-slider {
   -webkit-appearance: none;
   appearance: none;
