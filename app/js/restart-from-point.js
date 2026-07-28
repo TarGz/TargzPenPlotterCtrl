@@ -340,8 +340,9 @@ function dimToolpathBefore(pointIdx) {
   dimToolpathOutside(pointIdx, -1);
 }
 
-// Ghost everything outside [startIdx, endIdx] so only the range that will
-// actually be plotted stays saturated. endIdx < 0 means "to the end".
+// Paint everything outside [startIdx, endIdx] black — that part is already
+// drawn on the sheet. Only the range that will actually be plotted keeps its
+// original colours. endIdx < 0 means "to the end".
 function dimToolpathOutside(startIdx, endIdx) {
   if (!object || !object.geometry || !object.geometry.attributes.color) return;
 
@@ -353,26 +354,16 @@ function dimToolpathOutside(startIdx, endIdx) {
 
   colors.array.set(originalToolpathColors);
 
-  // Blend ghosted vertices toward the viewer background so they read as
-  // faded rather than darkened. Multiplying RGB alone makes red lines
-  // look like dark red on a white bg — more prominent, not less.
-  var bg = 0xffffff;
-  try { bg = Theme.getColor('SKY_BOTTOM_COLOR'); } catch (e) {}
-  var br = ((bg >> 16) & 0xff) / 255;
-  var bgG = ((bg >> 8) & 0xff) / 255;
-  var bb = (bg & 0xff) / 255;
-  var t = 0.88;
-  var inv = 1 - t;
   var total = colors.array.length;
 
   // The colour buffer runs in linePoints order (see convertParsedDataToObject),
   // so the plotted range is [startIdx*3, endIdx*3] and everything either side
-  // of it gets ghosted.
+  // of it gets blacked out.
   function ghost(from, to) {
     for (var i = Math.max(0, from); i < Math.min(total, to); i += 3) {
-      colors.array[i]     = originalToolpathColors[i]     * inv + br  * t;
-      colors.array[i + 1] = originalToolpathColors[i + 1] * inv + bgG * t;
-      colors.array[i + 2] = originalToolpathColors[i + 2] * inv + bb  * t;
+      colors.array[i]     = 0;
+      colors.array[i + 1] = 0;
+      colors.array[i + 2] = 0;
     }
   }
 
