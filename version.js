@@ -3,6 +3,13 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-07-28',
+      version: '1.15.1',
+      changes: [
+        'EDIT GCODE: the 3D camera no longer follows the START / END markers. Moving the slider panned the view to centre on each marker (cdScrubFollow), and closing the panel snapped back to overview framing (cdScrubResetCamera via resetView) — so you could not frame a detail and scrub through it. Camera position and zoom now stay exactly where you put them; the cone still tracks the active marker. Both helpers were removed from viewer.js along with their only call sites.'
+      ]
+    },
+    {
+      date: '2026-07-28',
       version: '1.15.0',
       changes: [
         'Closes #18 — ntfy now also pushes when a plot does NOT finish, which is the case where a phone alert actually matters. Three signals fire it: jobComplete with data.failed (abort or stream failure), the connection dropping while the job is running or held (machine disconnected mid-plot), and the controller entering ALARM while running. The last two hang off the periodic status tick that drives cdUpdateConnection, which keeps reporting after a port drops. Failure pushes use the rotating_light tag and Priority: high so they read differently from the success message; cdSendNtfy gained an optional opts argument for tags/priority and existing callers are unchanged. A single failure emits several signals in sequence, so pushes are collapsed to one per 20 s window.',
