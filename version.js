@@ -3,6 +3,13 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-07-29',
+      version: '1.20.1',
+      changes: [
+        'Fix #23 — the layer pencil now always opens the layer for editing. It used to toggle on strokeEditingLayerId, so when that still pointed at the layer the button called strokeLayerEditDone() instead — invisible when already out of edit mode, which left the layer unopenable and made creating a new layer the only way back in. DONE and Esc are the only ways out, and unlike the pencil they say so; a toggle behind an icon that never changed could not tell you which of the two a click would do. strokeLayerEdit() also builds the stroke list if it is missing and reports rather than silently returning.'
+      ]
+    },
+    {
+      date: '2026-07-29',
       version: '1.20.0',
       changes: [
         'RANGE gets two thumbs, one per end, instead of a single thumb that moved whichever end was active. FROM is orange and TO is blue so the two never read alike, the marker cards echo the same colours, the end taking the next click is filled solid while the other stays hollow, and the span between them is tinted on the track. Built as two native range inputs stacked over a shared track with pointer-events on the thumbs only — otherwise the upper input swallows every click and the lower thumb cannot be dragged where they overlap.',

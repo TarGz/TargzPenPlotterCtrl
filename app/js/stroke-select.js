@@ -969,6 +969,12 @@ function strokeLayerColorPicker(id, anchor) {
 function strokeLayerEdit(id) {
   var l = strokeLayerById(id);
   if (!l) return;
+  // Never depend on prior state: build the strokes if they are not there yet,
+  // and bail with a message rather than silently doing nothing.
+  if (!strokeEnsureBuilt()) {
+    Metro.toast.create('No strokes found in this file.', null, 3000, 'bg-orange');
+    return;
+  }
   strokeEditingLayerId = id;
   strokeSetMode('edit');
   strokeSelectAllQuiet(false);
@@ -1246,7 +1252,11 @@ $(document).ready(function () {
     if (act === 'color') { e.stopPropagation(); strokeLayerColorPicker(id, e.target); return; }
     if (act === 'editlayer') {
       e.stopPropagation();
-      if (strokeEditingLayerId === id) strokeLayerEditDone(); else strokeLayerEdit(id);
+      // Always enters. This used to toggle on strokeEditingLayerId, so if that
+      // still pointed at this layer the button called Done instead — invisible
+      // when already out of edit mode, and the layer became unopenable. DONE
+      // and Esc are the only ways out, and they say so.
+      strokeLayerEdit(id);
       return;
     }
     if ($(e.target).is('input') || $(e.target).attr('contenteditable') === 'true') return;
