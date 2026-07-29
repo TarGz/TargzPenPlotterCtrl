@@ -1650,6 +1650,196 @@
   color: var(--cd-accent);
 }
 
+/* ─── VIEW / EDIT mode switch ─────────────────────────────────────────────── */
+.cd-mode-switch {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 5px;
+}
+
+.cd-mode-btn {
+  padding: 5px 11px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  font-family: var(--cd-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--cd-text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.cd-mode-btn:hover { color: var(--cd-text); }
+
+.cd-mode-btn.is-active {
+  background: var(--pc-surface, #fff);
+  color: var(--pc-primary, #FF6A00);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+#cd-view-tools, #cd-edit-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* ─── Layer panel ─────────────────────────────────────────────────────────── */
+.cd-layer-panel {
+  position: absolute;
+  top: 60px;
+  right: 12px;
+  z-index: 120;
+  width: 196px;
+  padding: 8px;
+  background: var(--pc-surface, #fff);
+  border: 1px solid var(--cd-border);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.cd-layer-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-family: var(--cd-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--cd-text-muted);
+  margin-bottom: 6px;
+}
+
+.cd-layer-hint {
+  letter-spacing: 0;
+  opacity: 0.75;
+}
+
+.cd-layer-empty {
+  padding: 8px 6px 4px;
+  font-family: var(--cd-mono);
+  font-size: 9px;
+  line-height: 1.5;
+  color: var(--cd-text-faint, var(--cd-text-muted));
+}
+
+/* The play button is the plot selector — one target at a time, so it behaves
+   like a radio rather than a toggle. */
+.cd-layer-plot {
+  flex: 0 0 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--cd-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--cd-text-faint, var(--cd-text-muted));
+  font-size: 8px;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.cd-layer-plot:hover {
+  border-color: var(--pc-primary, #FF6A00);
+  color: var(--pc-primary, #FF6A00);
+}
+
+.cd-layer-plot.is-on {
+  border-color: var(--pc-primary, #FF6A00);
+  background: var(--pc-primary, #FF6A00);
+  color: #fff;
+}
+
+.cd-layer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.cd-layer-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  min-height: 32px;
+  border: 1px solid transparent;
+  border-left: 3px solid transparent;
+  border-radius: 4px;
+  font-family: var(--cd-mono);
+  font-size: 10px;
+  color: var(--cd-text);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.cd-layer-row:hover { background: rgba(0, 0, 0, 0.04); }
+
+.cd-layer-row:focus-visible {
+  outline: 2px solid var(--pc-primary, #FF6A00);
+  outline-offset: 1px;
+}
+
+/* Armed for plotting — the row that START will draw. */
+.cd-layer-row.is-plotting {
+  background: rgba(255, 106, 0, 0.07);
+}
+
+/* Open in the editor — distinct from armed, since they are independent. */
+.cd-layer-row.is-editing {
+  border-left-color: var(--pc-primary, #FF6A00);
+}
+
+.cd-layer-row.is-editing .cd-layer-name {
+  color: var(--pc-primary, #FF6A00);
+}
+
+/* Rename / delete only mean anything while editing. */
+.cd-layer-btn { display: none; }
+.cd-layer-panel.is-editable .cd-layer-btn { display: block; }
+
+.cd-layer-swatch {
+  flex: 0 0 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: #999;
+}
+
+.cd-layer-swatch.is-main {
+  background: transparent;
+  border: 1px solid var(--cd-text-muted);
+}
+
+.cd-layer-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cd-layer-count {
+  color: var(--cd-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.cd-layer-btn {
+  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  color: var(--cd-text-muted);
+  font-size: 10px;
+  line-height: 1;
+  padding: 2px 3px;
+  cursor: pointer;
+}
+
+.cd-layer-btn:hover { color: var(--pc-primary, #FF6A00); }
+
 /* ─── Plot target (RUN panel) ─────────────────────────────────────────────── */
 .cd-plot-target {
   padding: 8px 2px 10px;
@@ -1683,10 +1873,14 @@
 
 #cdPlotTargetClear:hover { color: var(--pc-primary, #FF6A00); }
 
-.cd-plot-target-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
+.cd-plot-target-name {
+  font-family: var(--cd-mono);
+  font-size: 11px;
+  color: var(--pc-primary, #FF6A00);
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cd-plot-target-btn {

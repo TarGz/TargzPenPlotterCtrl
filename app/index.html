@@ -1004,26 +1004,34 @@
                       <div id="renderArea"></div>
                       <div style="position: absolute; top: 10px; right:10px; z-index: 1; max-width: 100px;" id="overlayimg"></div>
                       <div class="pc-ui pc-navbar">
-                        <button class="pc-icon-btn" onclick="simSpeed();" title="Simulation speed">
-                          <i class="fas fa-tachometer-alt"></i><span class="pc-icon-caption"><span id="simspeedval">1</span>x</span>
-                        </button>
+                        <span class="cd-mode-switch">
+                          <button class="cd-mode-btn is-active" data-mode="view" type="button">VIEW</button>
+                          <button class="cd-mode-btn" data-mode="edit" type="button" id="cdStrokeEditBtn">
+                            <span id="cdStrokeEditLabel">EDIT</span>
+                          </button>
+                        </span>
                         <span class="pc-navbar-sep"></span>
-                        <button id="runSimBtn" class="pc-icon-btn" onclick="sim(0)" title="Run simulation">
-                          <i class="fas fa-fighter-jet"></i><span class="pc-icon-caption">Simulate</span>
-                        </button>
-                        <button id="stopSimBtn" class="pc-icon-btn" style="display:none;" onclick="simstop()" title="Stop Sim">
-                          <i class="fas fa-stop"></i><span class="pc-icon-caption">Stop</span>
-                        </button>
-                        <button id="resetViewBtn" class="pc-icon-btn" onclick="resetView(object)" title="Resets camera angle and zoom">
-                          <i class="fas fa-expand"></i><span class="pc-icon-caption">Reset View</span>
-                        </button>
-                        <span class="pc-navbar-sep"></span>
-                        <button id="cdPhotoBtn" class="pc-icon-btn" title="Overlay a photo of the sheet under the toolpath">
-                          <i class="fas fa-image"></i><span class="pc-icon-caption">Photo</span>
-                        </button>
-                        <button id="cdStrokeEditBtn" class="pc-icon-btn" title="Pick which strokes to plot">
-                          <i class="fas fa-object-group"></i><span class="pc-icon-caption" id="cdStrokeEditLabel">Edit</span>
-                        </button>
+
+                        <span id="cd-view-tools">
+                          <button class="pc-icon-btn" onclick="simSpeed();" title="Simulation speed">
+                            <i class="fas fa-tachometer-alt"></i><span class="pc-icon-caption"><span id="simspeedval">1</span>x</span>
+                          </button>
+                          <button id="runSimBtn" class="pc-icon-btn" onclick="sim(0)" title="Run simulation">
+                            <i class="fas fa-fighter-jet"></i><span class="pc-icon-caption">Simulate</span>
+                          </button>
+                          <button id="stopSimBtn" class="pc-icon-btn" style="display:none;" onclick="simstop()" title="Stop Sim">
+                            <i class="fas fa-stop"></i><span class="pc-icon-caption">Stop</span>
+                          </button>
+                          <button id="resetViewBtn" class="pc-icon-btn" onclick="resetView(object)" title="Resets camera angle and zoom">
+                            <i class="fas fa-expand"></i><span class="pc-icon-caption">Reset View</span>
+                          </button>
+                        </span>
+
+                        <span id="cd-edit-tools" style="display:none;">
+                          <button id="cdPhotoBtn" class="pc-icon-btn" title="Overlay a photo of the sheet under the toolpath">
+                            <i class="fas fa-image"></i><span class="pc-icon-caption">Photo</span>
+                          </button>
+                        </span>
                       </div>
 
                       <!-- Stroke selection: tool palette + selection summary.
@@ -1056,6 +1064,19 @@
                       <div id="cd-stroke-cursor" class="cd-stroke-cursor"></div>
                       <div id="cd-stroke-band" class="cd-stroke-band"></div>
 
+                      <!-- Layers: MAIN is the whole file and cannot be edited
+                           or deleted; the rest are named bunches of strokes. -->
+                      <div id="cd-layer-panel" class="cd-layer-panel" style="display:none;">
+                        <div class="cd-layer-head">
+                          <span>LAYERS</span>
+                          <span class="cd-layer-hint">▶ plots</span>
+                        </div>
+                        <div id="cd-layer-list" class="cd-layer-list"></div>
+                        <div id="cd-layer-empty" class="cd-layer-empty" style="display:none;">
+                          Select strokes, then SAVE AS LAYER
+                        </div>
+                      </div>
+
                       <div id="cd-stroke-bar" class="cd-stroke-bar" style="display:none;">
                         <span id="cdStrokeCount" class="cd-stroke-count">0 of 0 strokes</span>
                         <span id="cdStrokeLen" class="cd-stroke-len">0.00 m</span>
@@ -1063,7 +1084,8 @@
                         <button id="cdStrokeAll" type="button">ALL</button>
                         <button id="cdStrokeNone" type="button">NONE</button>
                         <button id="cdStrokeInvert" type="button">INVERT</button>
-                        <button id="cdStrokeSavePart" type="button" class="cd-stroke-primary" disabled>SAVE PART</button>
+                        <button id="cdStrokeUpdateLayer" type="button" style="display:none;">UPDATE</button>
+                        <button id="cdStrokeNewLayer" type="button" class="cd-stroke-primary" disabled>SAVE AS LAYER</button>
                         <button id="cdStrokeDone" type="button">✕</button>
                       </div>
 
@@ -1177,11 +1199,7 @@
                 <div id="cd-plot-target" class="cd-plot-target" style="display:none;">
                   <div class="cd-plot-target-head">
                     <span class="cd-plot-target-title">PLOT TARGET</span>
-                    <button id="cdPlotTargetClear" type="button" title="Forget the saved part">CLEAR</button>
-                  </div>
-                  <div class="cd-plot-target-row">
-                    <button class="cd-plot-target-btn is-active" data-target="file" type="button">Whole file</button>
-                    <button class="cd-plot-target-btn" data-target="part" type="button" id="cdPlotTargetPart">Part</button>
+                    <span id="cdPlotTargetName" class="cd-plot-target-name">Whole file</span>
                   </div>
                   <div id="cdPlotTargetMeta" class="cd-plot-target-meta"></div>
                 </div>

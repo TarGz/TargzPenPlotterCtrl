@@ -309,7 +309,8 @@ function strokeUpdateStats() {
   for (var k in strokeSelection) if (strokes[k]) len += strokes[k].len;
   $('#cdStrokeCount').text(strokeSelectionCount.toLocaleString() + ' of ' + strokes.length.toLocaleString() + ' strokes');
   $('#cdStrokeLen').text((len / 1000).toFixed(2) + ' m');
-  $('#cdStrokeSavePart').prop('disabled', strokeSelectionCount === 0);
+  $('#cdStrokeNewLayer').prop('disabled', strokeSelectionCount === 0);
+  $('#cdStrokeUpdateLayer').prop('disabled', strokeSelectionCount === 0);
 }
 
 // ── Pointer handling ───────────────────────────────────────────────────────
@@ -454,50 +455,61 @@ function strokeBrushResize(factor) {
 }
 
 // ── Mode ───────────────────────────────────────────────────────────────────
+//
+// VIEW is for looking at and running the plot: speed, simulate, reset view.
+// EDIT is for changing what gets plotted: reference photo, selection tools,
+// layers. Splitting them keeps the toolbar honest about what each control does,
+// and gives the colour buffer a single owner (see strokeRepaint).
 
-function strokeEditEnter() {
-  if (typeof object === 'undefined' || !object || !object.userData || !object.userData.linePoints) {
-    Metro.toast.create('Load a G-code file first.', null, 3000, 'bg-orange');
-    return;
-  }
-  // The range scrubber writes the same colour buffer; only one may own it.
-  if (typeof closeScrubber === 'function' && typeof scrubberOpen !== 'undefined' && scrubberOpen) closeScrubber();
-  // The photo control panel occupies the same corner. Only the controls close —
-  // the overlay itself stays, which is the whole point of selecting against it.
-  $('#cd-photo-panel').hide();
+var strokeMode = 'view';
 
-  strokeEditActive = true;
-  strokeBuild();
+function strokeSetMode(mode) {
+  var toEdit = (mode === 'edit');
 
-  // Reopening a saved part puts you back exactly where you left off.
-  if (strokePart && strokePart.fp === strokeFingerprint()) {
-    for (var k in strokePart.sel) {
-      if (strokes[k]) strokeSet(Number(k), true);
+  if (toEdit) {
+    if (typeof object === 'undefined' || !object || !object.userData || !object.userData.linePoints) {
+      Metro.toast.create('Load a G-code file first.', null, 3000, 'bg-orange');
+      return;
     }
+    // The range scrubber writes the same colour buffer; only one may own it.
+    if (typeof closeScrubber === 'function' && typeof scrubberOpen !== 'undefined' && scrubberOpen) closeScrubber();
   }
 
-  strokeApplyColors();
-  strokeUpdateStats();
+  strokeMode = toEdit ? 'edit' : 'view';
+  strokeEditActive = toEdit;
 
-  $('#cd-stroke-bar').show();
-  $('#cd-stroke-tools').show();
-  $('#cdStrokeEditBtn').addClass('is-active');
-  strokeSetTool(strokeTool);
-  strokeSetPaintMode(strokePaintMode);
+  if (toEdit) {
+    if (!strokes.length) strokeBuild();
+    strokeRefreshLayerUI();
+  } else {
+    strokeDragging = false;
+    strokeHover = -1;
+    if (typeof controls !== 'undefined' && controls) controls.enabled = true;
+    $('#cd-stroke-cursor').hide();
+    $('#cd-photo-panel').hide();
+  }
+
+  $('.cd-mode-btn').removeClass('is-active').filter('[data-mode="' + strokeMode + '"]').addClass('is-active');
+  $('#cd-view-tools').toggle(!toEdit);
+  $('#cd-edit-tools').toggle(toEdit);
+  $('#cd-stroke-tools').toggle(toEdit);
+  $('#cd-stroke-bar').toggle(toEdit);
+  // The layer panel stays up in both modes — it is the plot selector, and you
+  // need to change what you are plotting without entering edit mode.
+  $('#cd-layer-panel').toggle(strokes.length > 0 || toEdit);
+  strokeRefreshLayerUI();
+
+  if (toEdit) {
+    strokeSetTool(strokeTool);
+    strokeSetPaintMode(strokePaintMode);
+    strokeUpdateStats();
+  }
+  strokeRepaint();
 }
 
-function strokeEditExit() {
-  strokeEditActive = false;
-  strokeDragging = false;
-  strokeHover = -1;
-  if (typeof controls !== 'undefined' && controls) controls.enabled = true;
-  if (typeof restoreToolpathColors === 'function') restoreToolpathColors();
-
-  $('#cd-stroke-bar').hide();
-  $('#cd-stroke-tools').hide();
-  $('#cd-stroke-cursor').hide();
-  $('#cdStrokeEditBtn').removeClass('is-active');
-}
+// Kept as the names the rest of the app already calls.
+function strokeEditEnter() { strokeSetMode('edit'); }
+function strokeEditExit() { strokeSetMode('view'); }
 
 function strokeSetPaintMode(mode) {
   strokePaintMode = (mode === 'remove') ? 'remove' : 'add';
@@ -517,15 +529,27 @@ function strokeSetTool(tool) {
   if (tool !== 'brush') $('#cd-stroke-cursor').hide();
 }
 
-// ── The part ───────────────────────────────────────────────────────────────
+// ── Layers ─────────────────────────────────────────────────────────────────
 //
-// A "part" is a saved subset of the source file — the bit you actually want to
-// plot. It is stored as stroke INDICES, never as generated G-code, and the
-// source file is never modified. That is what makes it re-editable: reopening
-// the part restores the selection itself rather than some derived artefact.
+// A layer is a named bunch of strokes. MAIN is implicit — it means the whole
+// file — and cannot be edited or deleted. Layers are stored as stroke INDICES,
+// never as generated G-code, and the source file is never modified. That is
+// what makes them re-editable: opening one restores the selection itself rather
+// than some derived artefact.
+//
+// Layers may overlap freely; nothing stops a stroke being in several. Plotting
+// two overlapping layers would draw the shared strokes twice, which is the
+// user's call to make.
 
-var strokePart = null;
-var strokePlotTarget = 'file';
+var strokeLayers = [];
+var strokeEditingLayerId = null;
+var strokePlotLayerId = null;
+var strokeLayerSeq = 1;
+
+var STROKE_LAYER_COLORS = [
+  [0.85, 0.10, 0.10], [0.10, 0.45, 0.85], [0.10, 0.60, 0.25],
+  [0.75, 0.45, 0.00], [0.55, 0.20, 0.70], [0.00, 0.55, 0.55]
+];
 
 // Stroke indices are only meaningful for the file they were built from.
 function strokeFingerprint() {
@@ -539,82 +563,203 @@ function strokeEnsureBuilt() {
   return strokes.length > 0;
 }
 
-function strokeSavePart() {
-  if (!strokeSelectionCount) return;
+function strokeLayersSave() {
+  try {
+    localStorage.setItem('strokeLayers:' + strokeFingerprint(), JSON.stringify(strokeLayers));
+  } catch (e) {}
+}
 
+function strokeLayersLoad() {
+  strokeLayers = [];
+  try {
+    var raw = localStorage.getItem('strokeLayers:' + strokeFingerprint());
+    if (raw) strokeLayers = JSON.parse(raw) || [];
+  } catch (e) { strokeLayers = []; }
+
+  strokeLayerSeq = 1;
+  strokeLayers.forEach(function (l) {
+    var n = parseInt(String(l.id).replace(/\D/g, ''), 10);
+    if (!isNaN(n) && n >= strokeLayerSeq) strokeLayerSeq = n + 1;
+  });
+
+  if (!strokeLayerById(strokePlotLayerId)) strokePlotLayerId = null;
+  if (strokeLayers.length && strokes.length === 0) strokeEnsureBuilt();
+  $('#cd-layer-panel').toggle(strokeLayers.length > 0 || strokeMode === 'edit');
+  strokeRefreshLayerUI();
+  strokeRepaint();
+}
+
+function strokeLayerById(id) {
+  if (id === null || id === undefined) return null;
+  for (var i = 0; i < strokeLayers.length; i++) if (strokeLayers[i].id === id) return strokeLayers[i];
+  return null;
+}
+
+function strokeSelectionStats() {
+  var len = 0;
+  for (var k in strokeSelection) if (strokes[k]) len += strokes[k].len;
+  return { count: strokeSelectionCount, len: len };
+}
+
+function strokeLayerFromSelection(id, name) {
   var sel = {};
   for (var k in strokeSelection) sel[k] = 1;
-  var len = 0;
-  for (var j in sel) if (strokes[j]) len += strokes[j].len;
-
-  strokePart = { sel: sel, count: strokeSelectionCount, len: len, fp: strokeFingerprint() };
-  try { localStorage.setItem('strokePart:' + strokePart.fp, JSON.stringify(strokePart)); } catch (e) {}
-
-  strokePlotTarget = 'part';
-  strokeEditExit();
-  strokeRefreshPartUI();
-  Metro.toast.create('Part saved — ' + strokePart.count + ' strokes. The source file is untouched.', null, 4000, 'bg-green');
+  var st = strokeSelectionStats();
+  return { id: id, name: name, sel: sel, count: st.count, len: st.len };
 }
 
-function strokeLoadPart() {
-  strokePart = null;
-  try {
-    var raw = localStorage.getItem('strokePart:' + strokeFingerprint());
-    if (raw) strokePart = JSON.parse(raw);
-  } catch (e) {}
-  if (!strokePart) strokePlotTarget = 'file';
-  strokeRefreshPartUI();
+function strokeLayerNew() {
+  if (!strokeSelectionCount) return;
+  var id = 'L' + strokeLayerSeq++;
+  var layer = strokeLayerFromSelection(id, 'Layer ' + (strokeLayers.length + 1));
+  strokeLayers.push(layer);
+  strokeEditingLayerId = id;
+  strokeLayersSave();
+  strokeRefreshLayerUI();
+  Metro.toast.create('Saved "' + layer.name + '" — ' + layer.count + ' strokes.', null, 3000, 'bg-green');
 }
 
-function strokeClearPart() {
-  if (strokePart) {
-    try { localStorage.removeItem('strokePart:' + strokePart.fp); } catch (e) {}
+function strokeLayerUpdate() {
+  var l = strokeLayerById(strokeEditingLayerId);
+  if (!l || !strokeSelectionCount) return;
+  var next = strokeLayerFromSelection(l.id, l.name);
+  strokeLayers[strokeLayers.indexOf(l)] = next;
+  strokeLayersSave();
+  strokeRefreshLayerUI();
+  Metro.toast.create('Updated "' + next.name + '" — ' + next.count + ' strokes.', null, 3000, 'bg-green');
+}
+
+function strokeLayerDelete(id) {
+  var l = strokeLayerById(id);
+  if (!l) return;
+  strokeLayers.splice(strokeLayers.indexOf(l), 1);
+  if (strokeEditingLayerId === id) strokeEditingLayerId = null;
+  if (strokePlotLayerId === id) strokePlotLayerId = null;
+  strokeLayersSave();
+  strokeRefreshLayerUI();
+  strokeRepaint();
+}
+
+function strokeLayerRename(id) {
+  var l = strokeLayerById(id);
+  if (!l) return;
+  var name = window.prompt('Layer name', l.name);
+  if (name === null) return;
+  name = name.trim();
+  if (!name) return;
+  l.name = name;
+  strokeLayersSave();
+  strokeRefreshLayerUI();
+}
+
+// Open a layer for editing: switch to edit mode and restore its strokes as the
+// working selection.
+function strokeLayerEdit(id) {
+  var l = strokeLayerById(id);
+  if (!l) return;
+  strokeEditingLayerId = id;
+  if (strokeMode !== 'edit') strokeSetMode('edit');
+  strokeSelectAllQuiet(false);
+  for (var k in l.sel) if (strokes[k]) strokeSet(Number(k), true);
+  strokeRepaint();
+  strokeUpdateStats();
+  strokeRefreshLayerUI();
+}
+
+function strokeSelectAllQuiet(on) {
+  strokeSelection = {};
+  strokeSelectionCount = 0;
+  if (on) for (var i = 0; i < strokes.length; i++) strokeSet(i, true);
+}
+
+function strokeSetPlotLayer(id) {
+  strokePlotLayerId = strokeLayerById(id) ? id : null;
+  strokeRefreshLayerUI();
+  strokeRepaint();
+}
+
+function strokeLayerColor(i) {
+  return STROKE_LAYER_COLORS[i % STROKE_LAYER_COLORS.length];
+}
+
+// ── Layer UI ───────────────────────────────────────────────────────────────
+
+function strokeLayerRgb(i) {
+  var c = strokeLayerColor(i);
+  return 'rgb(' + Math.round(c[0] * 255) + ',' + Math.round(c[1] * 255) + ',' + Math.round(c[2] * 255) + ')';
+}
+
+// The layer list IS the plot selector — the RUN panel used to repeat it as a
+// second button grid, which meant two places to change one thing. RUN keeps
+// only the readout, because START still has to say what it will draw.
+function strokeRefreshLayerUI() {
+  var total = strokes.length || 0;
+  var editable = (strokeMode === 'edit');
+
+  function row(id, name, count, rgb, isMain) {
+    var plotting = (strokePlotLayerId === id) || (isMain && strokePlotLayerId === null);
+    var editing = editable && strokeEditingLayerId === id;
+    return '<div class="cd-layer-row' + (editing ? ' is-editing' : '') + (plotting ? ' is-plotting' : '') +
+        '" data-id="' + (id || '') + '" tabindex="0">' +
+        '<button class="cd-layer-plot' + (plotting ? ' is-on' : '') + '" data-act="plot" type="button" ' +
+          'aria-label="Plot ' + name + '" title="Plot this">▶</button>' +
+        '<span class="cd-layer-swatch' + (isMain ? ' is-main' : '') + '"' +
+          (rgb ? ' style="background:' + rgb + '"' : '') + '></span>' +
+        '<span class="cd-layer-name">' + $('<i>').text(name).html() + '</span>' +
+        '<span class="cd-layer-count">' + count.toLocaleString() + '</span>' +
+        (isMain ? '' :
+          '<button class="cd-layer-btn" data-act="rename" type="button" aria-label="Rename" title="Rename">✎</button>' +
+          '<button class="cd-layer-btn" data-act="delete" type="button" aria-label="Delete" title="Delete layer">✕</button>') +
+      '</div>';
   }
-  strokePart = null;
-  strokePlotTarget = 'file';
-  strokeRefreshPartUI();
+
+  var $list = $('#cd-layer-list').empty();
+  $list.append(row(null, 'MAIN', total, null, true));
+  strokeLayers.forEach(function (l, i) {
+    $list.append(row(l.id, l.name, l.count, strokeLayerRgb(i), false));
+  });
+
+  $('#cd-layer-panel').toggleClass('is-editable', editable);
+  $('#cd-layer-empty').toggle(strokeLayers.length === 0 && editable);
+
+  var el = strokeLayerById(strokeEditingLayerId);
+  $('#cdStrokeUpdateLayer').toggle(!!el).text(el ? 'UPDATE ' + el.name.toUpperCase() : 'UPDATE');
+
+  $('#cdStrokeEditLabel').text(strokeLayers.length ? 'EDIT · ' + strokeLayers.length : 'EDIT');
+
+  // RUN panel: readout only.
+  var pl = strokeLayerById(strokePlotLayerId);
+  $('#cd-plot-target').toggle(strokeLayers.length > 0);
+  $('#cdPlotTargetName').text(pl ? pl.name : 'Whole file');
+  $('#cdPlotTargetMeta').text(pl
+    ? pl.count.toLocaleString() + ' of ' + (total || '?').toLocaleString() + ' strokes · ' + (pl.len / 1000).toFixed(2) + ' m'
+    : (total ? total.toLocaleString() + ' strokes' : ''));
+  $('#cdStartBtn').text(pl ? '▶ START ' + pl.name.toUpperCase() : '▶ START');
 }
 
-function strokeSetPlotTarget(target) {
-  strokePlotTarget = (target === 'part' && strokePart) ? 'part' : 'file';
-  strokeRefreshPartUI();
-}
+// ── Painting (single owner) ────────────────────────────────────────────────
+//
+// Exactly one thing owns the colour buffer at a time, decided by mode. Two
+// features writing it with guards is what made edit mode show stale colours.
 
-// Chip label, RUN-panel target selector, and the START button wording. The
-// START label matters most: without it you cannot tell from the RUN panel
-// whether you are about to plot 75 strokes or all 2,887.
-function strokeRefreshPartUI() {
-  var has = !!strokePart;
-  $('#cdStrokeEditLabel').text(has ? 'Part · ' + strokePart.count : 'Edit');
-  $('#cdStrokeEditBtn').toggleClass('has-part', has);
-
-  $('#cd-plot-target').toggle(has);
-  $('.cd-plot-target-btn').removeClass('is-active')
-    .filter('[data-target="' + strokePlotTarget + '"]').addClass('is-active');
-  $('#cdPlotTargetPart').text(has ? 'Part · ' + strokePart.count : 'Part');
-  $('#cdPlotTargetMeta').text(has && strokePlotTarget === 'part'
-    ? strokePart.count.toLocaleString() + ' of ' + (strokes.length || '?').toLocaleString() +
-      ' strokes · ' + (strokePart.len / 1000).toFixed(2) + ' m'
-    : '');
-
-  $('#cdStartBtn').text(strokePlotTarget === 'part' ? '▶ START PART' : '▶ START');
-  strokePartPreview();
-}
-
-// With the part armed, the preview should show what will actually be drawn and
-// nothing else. The toolpath is one continuous THREE.Line sharing a geometry,
-// so individual strokes cannot be removed from it — instead the strokes outside
-// the part are painted the viewer background colour, which reads as hidden
-// against the white work area.
-function strokePartPreview() {
-  if (strokeEditActive) return;
+function strokeRepaint() {
   if (!object || !object.geometry || !object.geometry.attributes.color) return;
+  if (strokeMode === 'edit') strokeApplyColors();
+  else strokePaintViewMode();
+}
 
-  if (strokePlotTarget !== 'part' || !strokePart || strokePart.fp !== strokeFingerprint()) {
+// View mode: isolate the plot layer if one is armed (everything else painted
+// the background colour, which reads as hidden against the white work area —
+// the toolpath is one continuous THREE.Line, so strokes cannot be removed from
+// it). Otherwise hand the buffer back to the original toolpath colours.
+function strokePaintViewMode() {
+  var pl = strokeLayerById(strokePlotLayerId);
+
+  // Nothing to say: no layers and no target — hand the buffer back untouched.
+  if ((!strokeLayers.length && !pl) || !strokeEnsureBuilt()) {
     if (typeof restoreToolpathColors === 'function') restoreToolpathColors();
     return;
   }
-  if (!strokeEnsureBuilt()) return;
 
   var colors = object.geometry.attributes.color;
   if (!originalToolpathColors) originalToolpathColors = new Float32Array(colors.array);
@@ -624,40 +769,57 @@ function strokePartPreview() {
   var br = ((bg >> 16) & 0xff) / 255;
   var bgG = ((bg >> 8) & 0xff) / 255;
   var bb = (bg & 0xff) / 255;
-
   var total = colors.array.length;
-  for (var i = 0; i < total; i += 3) {
-    colors.array[i] = br;
-    colors.array[i + 1] = bgG;
-    colors.array[i + 2] = bb;
+
+  function fill(sel, r, g, b) {
+    for (var k in sel) {
+      var s = strokes[k];
+      if (!s) continue;
+      var to = Math.min((s.b + 1) * 3, total);
+      for (var j = s.a * 3; j < to; j += 3) {
+        colors.array[j] = r; colors.array[j + 1] = g; colors.array[j + 2] = b;
+      }
+    }
   }
 
-  for (var k in strokePart.sel) {
-    var s = strokes[k];
-    if (!s) continue;
-    var to = Math.min((s.b + 1) * 3, total);
-    for (var j = s.a * 3; j < to; j++) {
-      colors.array[j] = originalToolpathColors[j];
+  if (pl) {
+    // A layer is armed for plotting: show only it, so the preview matches what
+    // START will actually draw. Everything else takes the background colour,
+    // which reads as hidden against the white work area (the toolpath is one
+    // continuous THREE.Line, so strokes cannot be removed from it).
+    for (var i = 0; i < total; i += 3) {
+      colors.array[i] = br; colors.array[i + 1] = bgG; colors.array[i + 2] = bb;
     }
+    var ci = 0;
+    for (var n = 0; n < strokeLayers.length; n++) if (strokeLayers[n].id === pl.id) ci = n;
+    var c = strokeLayerColor(ci);
+    fill(pl.sel, c[0], c[1], c[2]);
+  } else {
+    // No target: ghost the file and tint each layer so the split is readable.
+    var t = 0.82, inv = 1 - t;
+    for (var i2 = 0; i2 < total; i2 += 3) {
+      colors.array[i2]     = originalToolpathColors[i2]     * inv + br  * t;
+      colors.array[i2 + 1] = originalToolpathColors[i2 + 1] * inv + bgG * t;
+      colors.array[i2 + 2] = originalToolpathColors[i2 + 2] * inv + bb  * t;
+    }
+    strokeLayers.forEach(function (l, idx) {
+      var lc = strokeLayerColor(idx);
+      fill(l.sel, lc[0], lc[1], lc[2]);
+    });
   }
 
   colors.needsUpdate = true;
 }
 
 // Called by runJobFile: the G-code to stream, or null to plot the whole file.
-// Built fresh at plot time from the saved indices, so it always reflects the
-// current pen heights rather than whatever they were when the part was saved.
+// Built fresh at plot time so it always uses the current pen heights.
 window.strokePartGcodeIfArmed = function () {
-  if (strokePlotTarget !== 'part' || !strokePart) return null;
-  if (strokePart.fp !== strokeFingerprint()) return null;
+  var pl = strokeLayerById(strokePlotLayerId);
+  if (!pl) return null;
   if (!strokeEnsureBuilt()) return null;
-  return strokeBuildGcode(Object.keys(strokePart.sel).map(Number).sort(function (a, b) { return a - b; }));
+  return strokeBuildGcode(Object.keys(pl.sel).map(Number).sort(function (a, b) { return a - b; }));
 };
 
-// Emit the kept strokes in their ORIGINAL work coordinates. Re-originating to
-// the selection's bounding box would break registration with the ink already on
-// the paper — the same reason LightBurn tells you to leave "Use Selection
-// Origin" off when re-running part of a job.
 function strokeBuildGcode(keep) {
   var lp = object.userData.linePoints;
 
@@ -721,16 +883,39 @@ $(document).ready(function () {
   $('#cdStrokeBrushDown').on('click', function () { strokeBrushResize(0.8); });
   $('#cdStrokeBrushUp').on('click', function () { strokeBrushResize(1.25); });
 
+  $('.cd-mode-btn').on('click', function () { strokeSetMode($(this).data('mode')); });
+
   $('#cdStrokeAll').on('click', function () { strokeSelectAll(true); });
   $('#cdStrokeNone').on('click', function () { strokeSelectAll(false); });
   $('#cdStrokeInvert').on('click', strokeInvert);
-  $('#cdStrokeSavePart').on('click', strokeSavePart);
+  $('#cdStrokeNewLayer').on('click', strokeLayerNew);
+  $('#cdStrokeUpdateLayer').on('click', strokeLayerUpdate);
   $('#cdStrokeDone').on('click', strokeEditExit);
 
-  $('#cd-plot-target').on('click', '.cd-plot-target-btn', function () {
-    strokeSetPlotTarget($(this).data('target'));
+  // Layer list: the row opens it for editing, the buttons rename / delete.
+  $('#cd-layer-list').on('click', '.cd-layer-row', function (e) {
+    var id = $(this).data('id') || null;
+    var act = $(e.target).data('act');
+    if (act === 'plot') { e.stopPropagation(); strokeSetPlotLayer(id); return; }
+    if (act === 'delete') { e.stopPropagation(); strokeLayerDelete(id); return; }
+    if (act === 'rename') { e.stopPropagation(); strokeLayerRename(id); return; }
+    if (strokeMode !== 'edit') { strokeSetPlotLayer(id); return; }
+    if (!id) {
+      // MAIN — clear the working selection and stop editing any layer.
+      strokeEditingLayerId = null;
+      strokeSelectAllQuiet(false);
+      strokeRepaint();
+      strokeUpdateStats();
+      strokeRefreshLayerUI();
+      return;
+    }
+    strokeLayerEdit(id);
   });
-  $('#cdPlotTargetClear').on('click', strokeClearPart);
+
+  // Keyboard equivalent of clicking a layer row.
+  $('#cd-layer-list').on('keydown', '.cd-layer-row', function (e) {
+    if (e.which === 13 || e.which === 32) { e.preventDefault(); $(this).trigger('click'); }
+  });
 
   var el = document.getElementById('renderArea');
   if (el) {
@@ -743,9 +928,9 @@ $(document).ready(function () {
     });
   }
 
-  // A newly parsed file may have a part saved against it from a previous
-  // session; the fingerprint check inside strokeLoadPart rejects mismatches.
-  setTimeout(strokeLoadPart, 1200);
+  // A newly parsed file may have layers saved against it from a previous
+  // session; the fingerprint in the storage key keeps them file-specific.
+  setTimeout(strokeLayersLoad, 1200);
 
   $(document).on('keydown', function (e) {
     if (!strokeEditActive) return;

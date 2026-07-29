@@ -3,6 +3,18 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-07-29',
+      version: '1.18.0',
+      changes: [
+        'Closes #21 — the 3D toolbar now leads with a VIEW / EDIT switch. VIEW keeps the controls for looking at and running a plot (speed, Simulate, Reset View); EDIT holds everything that changes what gets plotted (reference Photo, the selection tools, the layer panel, the selection bar). Nothing from one mode leaks into the other.',
+        'Parts become LAYERS: named bunches of strokes, renamable and deletable, with MAIN meaning the whole file (it cannot be renamed or deleted). Layers may overlap — nothing stops a stroke being in several, and plotting two overlapping layers would draw the shared strokes twice, which is the user\'s call. Storage moved from strokePart:<file> to strokeLayers:<file>, so a part saved under 1.17.0 does not carry over and needs saving again as a layer.',
+        'The layer panel IS the plot selector. Each row is play / swatch / name / count / rename / delete; the play button arms that layer for plotting and behaves as a radio, since only one thing can be plotted at a time. The RUN panel used to repeat the whole list as a second button grid — two places to change one thing — and now keeps only the readout plus the START label. The panel stays visible in both modes because changing what you plot should not require entering edit mode.',
+        'Armed-for-plotting and open-in-the-editor are independent states and are shown differently: a soft orange row fill for the plot target, an orange left bar and name for the layer being edited. One highlight for both would have implied they are mutually exclusive.',
+        'View-mode preview follows the layers: with a layer armed only that layer renders, in its own colour, matching exactly what START will draw. With nothing armed the file ghosts back and every layer tints in its own colour, which is the view that makes a two-pen split readable.',
+        'Fix stale colours in edit mode: the part preview and the selection painter both wrote the geometry colour buffer behind guards, and the guards could lose to call ordering. There is now a single strokeRepaint() that dispatches on mode — edit paints the black/red selection, view paints the layers — so the buffer has exactly one owner.'
+      ]
+    },
+    {
+      date: '2026-07-29',
       version: '1.17.0',
       changes: [
         'Closes #20 — EDIT mode in the 3D view: select which strokes to plot when the parts you need are NOT contiguous (pen ran dry in patches, a few shapes skipped). The START/END range can only express one interval; this expresses an arbitrary set. The unit is a stroke — one pen-down run — which turns a 12k-line file into a few hundred selectable things, the same granularity LightBurn and vpype work at.',
