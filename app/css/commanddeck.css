@@ -2473,12 +2473,12 @@
 }
 
 /* ─── Reference photo overlay panel ───────────────────────────────────────── */
-/* Global tool, so it sits clear of the tool rail, the tool options and the
-   range panel — any of which can be open at the same time. */
+/* Bottom-left: clear of the tool rail and options (top-left), the layers panel
+   (top-right) and the selection bar (bottom, full width). */
 .cd-photo-panel {
   position: absolute;
-  top: 60px;
-  left: 296px;
+  bottom: 62px;
+  left: 12px;
   z-index: 120;
   width: 232px;
   padding: 12px;
@@ -2575,21 +2575,31 @@
   color: var(--cd-text-muted);
 }
 
-.cd-photo-nudge {
-  flex: 0 0 22px;
-  height: 24px;
+/* Drag-to-place is modal: while it is on, the left button moves the photo
+   instead of orbiting, so the button has to read as clearly engaged. */
+.cd-photo-drag {
+  width: 100%;
+  padding: 8px 0;
   border: 1px solid var(--cd-border);
-  border-radius: 3px;
+  border-radius: 4px;
   background: transparent;
+  font-family: var(--cd-mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
   color: var(--cd-text);
   cursor: pointer;
-  font-size: 12px;
-  line-height: 1;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
-.cd-photo-nudge:hover {
+.cd-photo-drag:hover {
   border-color: var(--pc-primary, #FF6A00);
   color: var(--pc-primary, #FF6A00);
+}
+
+.cd-photo-drag.is-on {
+  background: var(--pc-primary, #FF6A00);
+  border-color: var(--pc-primary, #FF6A00);
+  color: #fff;
 }
 
 .cd-photo-actions {

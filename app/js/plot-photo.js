@@ -9,6 +9,22 @@
 
 var plotPhotoMesh = null;
 var plotPhotoAspect = 1;
+var plotPhotoDragMode = false;
+var plotPhotoDragFrom = null;
+var plotPhotoBaseW = 0;
+
+// Cursor position on the Z plane, in work coordinates.
+function plotPhotoMouseWorld(ev) {
+  if (typeof renderer === 'undefined' || !renderer) return null;
+  var rect = renderer.domElement.getBoundingClientRect();
+  var ndc = new THREE.Vector2(
+    ((ev.clientX - rect.left) / rect.width) * 2 - 1,
+    -((ev.clientY - rect.top) / rect.height) * 2 + 1
+  );
+  raycaster.setFromCamera(ndc, camera);
+  var pt = new THREE.Vector3();
+  return raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 0, 1), 0), pt) ? pt : null;
+}
 
 function plotPhotoState() {
   return {
@@ -58,6 +74,8 @@ function plotPhotoFitToDrawing() {
   $('#cdPhotoY').val(((b.min.y + b.max.y) / 2).toFixed(1));
   $('#cdPhotoW').val(w.toFixed(1));
   $('#cdPhotoRot').val(0);
+  plotPhotoBaseW = w;
+  $('#cdPhotoScale').val(100);
   plotPhotoApply();
 }
 
@@ -79,6 +97,18 @@ function plotPhotoLoadFile(file) {
         })
       );
       plotPhotoMesh.name = 'plotPhoto';
+
+      // Outline as a CHILD of the plane, so it inherits position, scale and
+      // rotation for free. A photo of white paper on a white work area has no
+      // visible edge otherwise.
+      var og = new THREE.Geometry();
+      og.vertices.push(
+        new THREE.Vector3(-0.5, -0.5, 0), new THREE.Vector3(0.5, -0.5, 0),
+        new THREE.Vector3(0.5, 0.5, 0), new THREE.Vector3(-0.5, 0.5, 0),
+        new THREE.Vector3(-0.5, -0.5, 0)
+      );
+      plotPhotoMesh.add(new THREE.Line(og, new THREE.LineBasicMaterial({ color: 0xFF6A00 })));
+
       scene.add(plotPhotoMesh);
 
       $('#cd-photo-controls').show();
@@ -100,6 +130,10 @@ function plotPhotoRemove() {
 
 function plotPhotoClear() {
   plotPhotoRemove();
+  plotPhotoDragMode = false;
+  plotPhotoDragFrom = null;
+  $('#cdPhotoDrag').removeClass('is-on');
+  if (typeof controls !== 'undefined' && controls) controls.enabled = true;
   $('#cd-photo-controls').hide();
   $('#cdPhotoFile').val('');
 }
@@ -132,12 +166,43 @@ $(document).ready(function () {
   $('#cdPhotoFit').on('click', plotPhotoFitToDrawing);
   $('#cdPhotoRemoveBtn').on('click', plotPhotoClear);
 
-  // Nudge the photo without retyping — alignment is a game of tenths.
-  $('.cd-photo-nudge').on('click', function () {
-    var axis = $(this).data('axis');
-    var d = parseFloat($(this).data('delta'));
-    var $f = (axis === 'x') ? $('#cdPhotoX') : $('#cdPhotoY');
-    $f.val(((parseFloat($f.val()) || 0) + d).toFixed(1));
+  // Scale is relative to whatever FIT TO DRAWING worked out, so the slider
+  // stays useful whatever the photo's pixel size.
+  $('#cdPhotoScale').on('input', function () {
+    if (!plotPhotoBaseW) plotPhotoBaseW = parseFloat($('#cdPhotoW').val()) || 100;
+    $('#cdPhotoW').val((plotPhotoBaseW * (parseFloat(this.value) / 100)).toFixed(1));
     plotPhotoApply();
   });
+
+  $('#cdPhotoDrag').on('click', function () {
+    plotPhotoDragMode = !plotPhotoDragMode;
+    $(this).toggleClass('is-on', plotPhotoDragMode);
+    if (typeof controls !== 'undefined' && controls) controls.enabled = !plotPhotoDragMode;
+  });
+
+  // Drag to place: grab anywhere in the view and the photo follows, which beats
+  // typing coordinates when you are matching ink to ink.
+  var el = document.getElementById('renderArea');
+  if (el) {
+    el.addEventListener('mousedown', function (ev) {
+      if (!plotPhotoDragMode || !plotPhotoMesh || ev.button !== 0) return;
+      ev.preventDefault(); ev.stopPropagation();
+      var w = plotPhotoMouseWorld(ev);
+      if (!w) return;
+      plotPhotoDragFrom = { x: w.x, y: w.y,
+        px: parseFloat($('#cdPhotoX').val()) || 0,
+        py: parseFloat($('#cdPhotoY').val()) || 0 };
+    }, true);
+
+    el.addEventListener('mousemove', function (ev) {
+      if (!plotPhotoDragFrom) return;
+      var w = plotPhotoMouseWorld(ev);
+      if (!w) return;
+      $('#cdPhotoX').val((plotPhotoDragFrom.px + (w.x - plotPhotoDragFrom.x)).toFixed(1));
+      $('#cdPhotoY').val((plotPhotoDragFrom.py + (w.y - plotPhotoDragFrom.y)).toFixed(1));
+      plotPhotoApply();
+    }, true);
+
+    el.addEventListener('mouseup', function () { plotPhotoDragFrom = null; }, true);
+  }
 });

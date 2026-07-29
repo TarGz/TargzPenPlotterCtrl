@@ -3,6 +3,16 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-07-29',
+      version: '1.21.0',
+      changes: [
+        'Closes #24 — REFERENCE PHOTO is placed by dragging rather than by typing coordinates. A DRAG TO PLACE toggle grabs the photo anywhere in the view and it follows the cursor; the CENTRE X / CENTRE Y fields and their nudge buttons are gone. The mode is deliberate — while it is on the left button moves the photo instead of orbiting, so the button fills solid, and OrbitControls is restored when it is turned off or the photo removed.',
+        'Add a SCALE slider (10–400%) relative to whatever FIT TO DRAWING computed, so it stays useful whatever the photo\'s pixel size. The mm size field and derived height remain for when the paper width is known exactly.',
+        'Draw the photo\'s outline. A photo of white paper on a white work area has essentially no visible edge, so there was nothing to align against. The border is a child of the plane, inheriting position, scale and rotation rather than needing its own update path.',
+        'Move the panel to the bottom left, clear of the tool rail and options (top left), the layers panel (top right) and the selection bar (bottom, full width).'
+      ]
+    },
+    {
+      date: '2026-07-29',
       version: '1.20.1',
       changes: [
         'Fix #23 — the layer pencil now always opens the layer for editing. It used to toggle on strokeEditingLayerId, so when that still pointed at the layer the button called strokeLayerEditDone() instead — invisible when already out of edit mode, which left the layer unopenable and made creating a new layer the only way back in. DONE and Esc are the only ways out, and unlike the pencil they say so; a toggle behind an icon that never changed could not tell you which of the two a click would do. strokeLayerEdit() also builds the stroke list if it is missing and reports rather than silently returning.'

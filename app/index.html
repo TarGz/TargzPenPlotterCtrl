@@ -1151,25 +1151,24 @@
                         </label>
 
                         <div id="cd-photo-controls" style="display:none;">
+                          <!-- Position is set by dragging the photo in the view;
+                               these hold the value the drag writes. -->
+                          <input type="hidden" id="cdPhotoX" value="0">
+                          <input type="hidden" id="cdPhotoY" value="0">
+
+                          <button id="cdPhotoDrag" class="cd-photo-drag" type="button">✥ DRAG TO PLACE</button>
+
                           <div class="cd-photo-row">
-                            <span class="cd-photo-label">CENTRE X</span>
-                            <input type="number" id="cdPhotoX" step="0.5" value="0">
-                            <button class="cd-photo-nudge" data-axis="x" data-delta="-1">−</button>
-                            <button class="cd-photo-nudge" data-axis="x" data-delta="1">+</button>
+                            <span class="cd-photo-label">SCALE</span>
+                            <input type="range" id="cdPhotoScale" min="10" max="400" step="1" value="100">
                           </div>
                           <div class="cd-photo-row">
-                            <span class="cd-photo-label">CENTRE Y</span>
-                            <input type="number" id="cdPhotoY" step="0.5" value="0">
-                            <button class="cd-photo-nudge" data-axis="y" data-delta="-1">−</button>
-                            <button class="cd-photo-nudge" data-axis="y" data-delta="1">+</button>
-                          </div>
-                          <div class="cd-photo-row">
-                            <span class="cd-photo-label">WIDTH</span>
+                            <span class="cd-photo-label">SIZE</span>
                             <input type="number" id="cdPhotoW" step="1" value="100">
                             <span class="cd-photo-unit">mm</span>
                           </div>
                           <div class="cd-photo-row">
-                            <span class="cd-photo-label">HEIGHT</span>
+                            <span class="cd-photo-label"></span>
                             <span id="cdPhotoH" class="cd-photo-derived">—</span>
                           </div>
                           <div class="cd-photo-row">
