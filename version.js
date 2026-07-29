@@ -3,6 +3,13 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-07-29',
+      version: '1.21.1',
+      changes: [
+        'Fix — the LAYERS panel, and with it the whole stroke editor, was unreachable on a machine that had never saved a layer. The panel was shown only when strokeLayers.length > 0, but + NEW LAYER lives inside it and the layer pencil is the only other way into EDIT, so an empty localStorage meant no panel, no button, no way in. Layers are keyed by filename + line count in localStorage, so the same commit behaved differently on a second computer purely because that profile already had layers stored. Visibility now keys on whether a G-code file is loaded (new strokeHasFile()), which is what the panel actually depends on.'
+      ]
+    },
+    {
+      date: '2026-07-29',
       version: '1.21.0',
       changes: [
         'Closes #24 — REFERENCE PHOTO is placed by dragging rather than by typing coordinates. A DRAG TO PLACE toggle grabs the photo anywhere in the view and it follows the cursor; the CENTRE X / CENTRE Y fields and their nudge buttons are gone. The mode is deliberate — while it is on the left button moves the photo instead of orbiting, so the button fills solid, and OrbitControls is restored when it is turned off or the photo removed.',

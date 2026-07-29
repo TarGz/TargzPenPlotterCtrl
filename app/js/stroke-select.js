@@ -545,7 +545,7 @@ function strokeSetMode(mode) {
   $('#cd-stroke-bar').toggle(toEdit);
   // The layer panel stays up in both modes — it is the plot selector, and you
   // need to change what you are plotting without entering edit mode.
-  $('#cd-layer-panel').toggle(strokes.length > 0 || toEdit);
+  $('#cd-layer-panel').toggle(strokeHasFile() || toEdit);
   strokeRefreshLayerUI();
 
   if (toEdit) {
@@ -811,6 +811,12 @@ function strokeEnsureBuilt() {
   return strokes.length > 0;
 }
 
+// Cheap "is there a toolpath?" test — used to decide whether the layer panel
+// belongs on screen, without paying for strokeBuild().
+function strokeHasFile() {
+  return typeof object !== 'undefined' && !!object && !!object.userData && !!object.userData.linePoints;
+}
+
 function strokeLayersSave() {
   try {
     localStorage.setItem('strokeLayers:' + strokeFingerprint(), JSON.stringify(strokeLayers));
@@ -832,7 +838,11 @@ function strokeLayersLoad() {
 
   if (!strokeLayerById(strokePlotLayerId)) strokePlotLayerId = null;
   if (strokeLayers.length && strokes.length === 0) strokeEnsureBuilt();
-  $('#cd-layer-panel').toggle(strokeLayers.length > 0 || strokeMode === 'edit');
+  // Show the panel for any loaded file, not only one that already has layers:
+  // + NEW LAYER lives inside it and is the only way into EDIT, so gating the
+  // panel on strokeLayers.length made the whole editor unreachable on a machine
+  // with no saved layers in localStorage.
+  $('#cd-layer-panel').toggle(strokeHasFile() || strokeMode === 'edit');
   strokeRefreshLayerUI();
   strokeRepaint();
 }
