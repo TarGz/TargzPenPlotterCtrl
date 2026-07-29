@@ -214,6 +214,20 @@ $(document).ready(function() {
 });
 
 function runJobFile() {
+  // Plot target is a saved part: stream the derived subset instead. The editor
+  // keeps the full source file, so the part stays re-editable afterwards.
+  var partGcode = (typeof strokePartGcodeIfArmed === 'function') ? strokePartGcodeIfArmed() : null;
+  if (partGcode) {
+    var partForm = new FormData();
+    partForm.append("file", new File([new Blob([partGcode], { type: 'text/plain' })], 'upload.gcode'));
+    var partXhr = new XMLHttpRequest();
+    partXhr.open('POST', '/runjob', true);
+    partXhr.send(partForm);
+    printLog(`<span class="fg-red">[ GCODE Parser ]</span><span class='fg-darkGray'> Saved PART sent to backend (source file untouched) </span>`);
+    lastJobStartTime = new Date().getTime()
+    return;
+  }
+
   if (gcode) {
     var formData = new FormData();
     var blob = new Blob([gcode], {

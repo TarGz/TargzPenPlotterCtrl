@@ -110,6 +110,8 @@ function plotPhotoReattach() {
   if (plotPhotoMesh && !scene.getObjectByName('plotPhoto')) {
     scene.add(plotPhotoMesh);
   }
+  // A re-parse means new stroke indices; re-check whether a part matches.
+  if (typeof strokeLoadPart === 'function') strokeLoadPart();
 }
 
 $(document).ready(function () {

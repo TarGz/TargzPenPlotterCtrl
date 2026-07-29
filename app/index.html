@@ -1021,6 +1021,50 @@
                         <button id="cdPhotoBtn" class="pc-icon-btn" title="Overlay a photo of the sheet under the toolpath">
                           <i class="fas fa-image"></i><span class="pc-icon-caption">Photo</span>
                         </button>
+                        <button id="cdStrokeEditBtn" class="pc-icon-btn" title="Pick which strokes to plot">
+                          <i class="fas fa-object-group"></i><span class="pc-icon-caption" id="cdStrokeEditLabel">Edit</span>
+                        </button>
+                      </div>
+
+                      <!-- Stroke selection: tool palette + selection summary.
+                           Used when the parts to redraw are not contiguous. -->
+                      <div id="cd-stroke-tools" class="cd-stroke-tools" style="display:none;">
+                        <button class="cd-stroke-tool is-active" data-tool="pick" title="Click a stroke to toggle (V) — shift-click to add">
+                          <i class="fas fa-mouse-pointer"></i><span>Pick</span>
+                        </button>
+                        <button class="cd-stroke-tool" data-tool="brush" title="Drag to paint over strokes (B) — alt to erase">
+                          <i class="fas fa-paint-brush"></i><span>Brush</span>
+                        </button>
+                        <button class="cd-stroke-tool" data-tool="box" title="Drag a box over strokes (X) — alt to erase">
+                          <i class="far fa-square"></i><span>Box</span>
+                        </button>
+                        <span id="cdStrokeBrushSize" class="cd-stroke-brush" style="display:none;">
+                          <button id="cdStrokeBrushDown" type="button" title="Smaller brush ( [ )">−</button>
+                          <span id="cdStrokeBrushVal">8.0 mm</span>
+                          <button id="cdStrokeBrushUp" type="button" title="Bigger brush ( ] )">+</button>
+                        </span>
+                        <span class="cd-stroke-modes">
+                          <button class="cd-stroke-mode is-active" data-mode="add" title="Selecting (A) — hold alt to unselect">
+                            <i class="fas fa-plus"></i><span>Select</span>
+                          </button>
+                          <button class="cd-stroke-mode" data-mode="remove" title="Unselecting (E) — hold alt to select">
+                            <i class="fas fa-minus"></i><span>Unselect</span>
+                          </button>
+                        </span>
+                      </div>
+
+                      <div id="cd-stroke-cursor" class="cd-stroke-cursor"></div>
+                      <div id="cd-stroke-band" class="cd-stroke-band"></div>
+
+                      <div id="cd-stroke-bar" class="cd-stroke-bar" style="display:none;">
+                        <span id="cdStrokeCount" class="cd-stroke-count">0 of 0 strokes</span>
+                        <span id="cdStrokeLen" class="cd-stroke-len">0.00 m</span>
+                        <span class="cd-stroke-spacer"></span>
+                        <button id="cdStrokeAll" type="button">ALL</button>
+                        <button id="cdStrokeNone" type="button">NONE</button>
+                        <button id="cdStrokeInvert" type="button">INVERT</button>
+                        <button id="cdStrokeSavePart" type="button" class="cd-stroke-primary" disabled>SAVE PART</button>
+                        <button id="cdStrokeDone" type="button">✕</button>
                       </div>
 
                       <!-- Reference photo: align a photo of the half-drawn sheet
@@ -1126,6 +1170,21 @@
                     <div class="cd-set-toggle-hint">Move to parking position when the job finishes · Settings › PARKING</div>
                   </div>
                 </label>
+
+                <!-- What START will actually plot. Only shown once a part
+                     exists — without it there is no way to tell whether the
+                     next job is the whole file or a saved subset. -->
+                <div id="cd-plot-target" class="cd-plot-target" style="display:none;">
+                  <div class="cd-plot-target-head">
+                    <span class="cd-plot-target-title">PLOT TARGET</span>
+                    <button id="cdPlotTargetClear" type="button" title="Forget the saved part">CLEAR</button>
+                  </div>
+                  <div class="cd-plot-target-row">
+                    <button class="cd-plot-target-btn is-active" data-target="file" type="button">Whole file</button>
+                    <button class="cd-plot-target-btn" data-target="part" type="button" id="cdPlotTargetPart">Part</button>
+                  </div>
+                  <div id="cdPlotTargetMeta" class="cd-plot-target-meta"></div>
+                </div>
 
                 <div id="cdRunIdle">
                   <button id="cdStartBtn" class="cd-btn-start" onclick="runJobFile()" disabled>▶ START</button>
@@ -2055,6 +2114,7 @@
 
   <script type="text/javascript" src="js/restart-from-point.js"></script>
   <script type="text/javascript" src="js/plot-photo.js"></script>
+  <script type="text/javascript" src="js/stroke-select.js"></script>
 
   <script type="text/javascript" src="js/toolchange.js"></script>
 

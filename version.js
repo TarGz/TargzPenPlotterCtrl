@@ -2,6 +2,19 @@ module.exports = {
   version: require('./package.json').version,
   CHANGELOG: [
     {
+      date: '2026-07-29',
+      version: '1.17.0',
+      changes: [
+        'Closes #20 — EDIT mode in the 3D view: select which strokes to plot when the parts you need are NOT contiguous (pen ran dry in patches, a few shapes skipped). The START/END range can only express one interval; this expresses an arbitrary set. The unit is a stroke — one pen-down run — which turns a 12k-line file into a few hundred selectable things, the same granularity LightBurn and vpype work at.',
+        'Three tools over one selection: Pick (V, click a stroke), Brush (B, drag to paint, [ and ] resize — the wheel stays with the camera zoom), Box (X, rubber band). Select / Unselect modes (A / E) decide which way a gesture paints, with alt inverting for one gesture. Plus ALL / NONE / INVERT and 50-deep undo on Cmd+Z. Roll-over shows what a click would do: green it would come in, dark red it is already in, grey the click is a no-op.',
+        'Stroke detection works per SEGMENT and asks only two things: is it a feed move, and does it move in XY. No Z heuristic — pen up/down conventions vary too much between post-processors, and guessing wrong silently selects the wrong half of the file. A pen lift is a Z-only move so it drops out on its own. Strokes seed at the previous point, because a drawn segment runs FROM the rapid endpoint (where the pen came down, g == 0) TO the feed point.',
+        'Hit-testing is 2D against a uniform grid of stroke bounding boxes, with early-out in the point-to-segment loop. Raycasting the toolpath Line directly is O(vertices) per mousemove and stutters while brushing a large plot. Pick tolerance is derived from screen pixels so it feels the same at any zoom, and hover recolours only the two affected strokes rather than the whole buffer.',
+        'SAVE PART stores the selection as stroke INDICES in localStorage (key strokePart:<file>:<line count>), never as generated G-code, and never modifies the source file — which is what makes a part re-editable: reopening restores the selection itself, not a derived artefact. The line count in the key means a re-exported file with different line numbering stops matching rather than plotting stale indices.',
+        'RUN panel gains PLOT TARGET (Whole file / Part) and START relabels to START PART when a part is armed — without it there is no way to tell whether the next job is 75 strokes or all 2,887. Selecting Part also isolates it in the preview. The part G-code is generated fresh at plot time, so it always uses the current pen heights, and is streamed to /runjob directly so the editor keeps the full source file.',
+        'Exported strokes keep the source file\'s work coordinates. Re-originating to the selection bounding box would break registration with the ink already on the paper — the same reason LightBurn tells you to leave "Use Selection Origin" off when re-running part of a job.'
+      ]
+    },
+    {
       date: '2026-07-28',
       version: '1.16.0',
       changes: [
