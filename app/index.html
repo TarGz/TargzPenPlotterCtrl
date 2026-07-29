@@ -1004,14 +1004,6 @@
                       <div id="renderArea"></div>
                       <div style="position: absolute; top: 10px; right:10px; z-index: 1; max-width: 100px;" id="overlayimg"></div>
                       <div class="pc-ui pc-navbar">
-                        <span class="cd-mode-switch">
-                          <button class="cd-mode-btn is-active" data-mode="view" type="button">VIEW</button>
-                          <button class="cd-mode-btn" data-mode="edit" type="button" id="cdStrokeEditBtn">
-                            <span id="cdStrokeEditLabel">EDIT</span>
-                          </button>
-                        </span>
-                        <span class="pc-navbar-sep"></span>
-
                         <span id="cd-view-tools">
                           <button class="pc-icon-btn" onclick="simSpeed();" title="Simulation speed">
                             <i class="fas fa-tachometer-alt"></i><span class="pc-icon-caption"><span id="simspeedval">1</span>x</span>
@@ -1027,42 +1019,95 @@
                           </button>
                         </span>
 
-                        <span id="cd-edit-tools" style="display:none;">
-                          <button id="cdPhotoBtn" class="pc-icon-btn" title="Overlay a photo of the sheet under the toolpath">
-                            <i class="fas fa-image"></i><span class="pc-icon-caption">Photo</span>
-                          </button>
-                        </span>
+                        <span class="pc-navbar-sep"></span>
+                        <!-- Photo is global: it belongs to the drawing, not to
+                             any one layer, so it stays available at all times. -->
+                        <button id="cdPhotoBtn" class="pc-icon-btn" title="Overlay a photo of the sheet under the toolpath">
+                          <i class="fas fa-image"></i><span class="pc-icon-caption">Photo</span>
+                        </button>
                       </div>
 
-                      <!-- Stroke selection: tool palette + selection summary.
-                           Used when the parts to redraw are not contiguous. -->
-                      <div id="cd-stroke-tools" class="cd-stroke-tools" style="display:none;">
-                        <button class="cd-stroke-tool is-active" data-tool="pick" title="Click a stroke to toggle (V) — shift-click to add">
-                          <i class="fas fa-mouse-pointer"></i><span>Pick</span>
+                      <!-- Tool rail: icons only, vertical, docked left. The
+                           options for the active tool live in the panel beside it. -->
+                      <div id="cd-stroke-tools" class="cd-tool-rail" style="display:none;">
+                        <button class="cd-rail-btn is-active" data-tool="pick" aria-label="Pick" title="Pick — click a stroke (V)">
+                          <i class="fas fa-mouse-pointer"></i>
                         </button>
-                        <button class="cd-stroke-tool" data-tool="brush" title="Drag to paint over strokes (B) — alt to erase">
-                          <i class="fas fa-paint-brush"></i><span>Brush</span>
+                        <button class="cd-rail-btn" data-tool="brush" aria-label="Brush" title="Brush — drag to paint (B)">
+                          <i class="fas fa-paint-brush"></i>
                         </button>
-                        <button class="cd-stroke-tool" data-tool="box" title="Drag a box over strokes (X) — alt to erase">
-                          <i class="far fa-square"></i><span>Box</span>
+                        <button class="cd-rail-btn" data-tool="box" aria-label="Box" title="Box — drag a marquee (X)">
+                          <i class="far fa-square"></i>
                         </button>
-                        <span id="cdStrokeBrushSize" class="cd-stroke-brush" style="display:none;">
-                          <button id="cdStrokeBrushDown" type="button" title="Smaller brush ( [ )">−</button>
-                          <span id="cdStrokeBrushVal">8.0 mm</span>
-                          <button id="cdStrokeBrushUp" type="button" title="Bigger brush ( ] )">+</button>
-                        </span>
-                        <span class="cd-stroke-modes">
-                          <button class="cd-stroke-mode is-active" data-mode="add" title="Selecting (A) — hold alt to unselect">
-                            <i class="fas fa-plus"></i><span>Select</span>
-                          </button>
-                          <button class="cd-stroke-mode" data-mode="remove" title="Unselecting (E) — hold alt to select">
-                            <i class="fas fa-minus"></i><span>Unselect</span>
-                          </button>
-                        </span>
+                        <button class="cd-rail-btn" data-tool="range" aria-label="Range" title="Range — a contiguous run (R)">
+                          <i class="fas fa-arrows-alt-h"></i>
+                        </button>
+                      </div>
+
+                      <!-- Contextual options for the active tool -->
+                      <div id="cd-tool-options" class="cd-tool-options" style="display:none;">
+                        <div class="cd-opt-head"><span id="cdToolName">PICK</span></div>
+
+                        <div class="cd-opt-group" data-opt="paint">
+                          <div class="cd-opt-label">MODE</div>
+                          <span class="cd-stroke-modes">
+                            <button class="cd-stroke-mode is-active" data-mode="add" title="Selecting (A) — hold alt to unselect">
+                              <i class="fas fa-plus"></i><span>Select</span>
+                            </button>
+                            <button class="cd-stroke-mode" data-mode="remove" title="Unselecting (E) — hold alt to select">
+                              <i class="fas fa-minus"></i><span>Unselect</span>
+                            </button>
+                          </span>
+                        </div>
+
+                        <div class="cd-opt-group" data-opt="brush">
+                          <div class="cd-opt-label">SIZE</div>
+                          <span id="cdStrokeBrushSize" class="cd-stroke-brush">
+                            <button id="cdStrokeBrushDown" type="button" title="Smaller brush ( [ )">−</button>
+                            <span id="cdStrokeBrushVal">8.0 mm</span>
+                            <button id="cdStrokeBrushUp" type="button" title="Bigger brush ( ] )">+</button>
+                          </span>
+                        </div>
+
+                        <div class="cd-opt-group" data-opt="range">
+                          <div class="cd-opt-label"><span id="cdStrokeRangeScope">whole file</span></div>
+
+                        <div class="cd-range-marks">
+                          <div class="cd-range-mark is-next" data-end="a">
+                            <span class="cd-range-mark-label">FROM</span>
+                            <input type="number" id="cdStrokeRangeFrom" class="cd-range-mark-input" min="1" step="1">
+                          </div>
+                          <div class="cd-range-mark" data-end="b">
+                            <span class="cd-range-mark-label">TO</span>
+                            <input type="number" id="cdStrokeRangeTo" class="cd-range-mark-input" min="1" step="1">
+                          </div>
+                        </div>
+
+                        <input type="range" id="cdStrokeRangeSlider" class="cd-scrub-slider" min="0" max="100" value="0">
+
+                        <div class="cd-scrub-steps">
+                          <button class="cd-range-step" data-step="-100" type="button">-100</button>
+                          <button class="cd-range-step" data-step="-10" type="button">-10</button>
+                          <button class="cd-range-step" data-step="-1" type="button">-1</button>
+                          <button class="cd-range-step" data-step="1" type="button">+1</button>
+                          <button class="cd-range-step" data-step="10" type="button">+10</button>
+                          <button class="cd-range-step" data-step="100" type="button">+100</button>
+                        </div>
+
+                        <div id="cdStrokeRangeInfo" class="cd-scrub-info pc-info-text">
+                          <div class="pc-info-row pc-info-row-pill"><span class="pc-pill">—</span></div>
+                          <div class="pc-info-row pc-info-row-coords">X:0.00 Y:0.00</div>
+                          <div class="pc-info-row pc-info-gcode">&nbsp;</div>
+                        </div>
+
+                        <button id="cdStrokeRangeReset" class="cd-range-reset" type="button">↺ CLEAR RANGE</button>
+                      </div>
+                        <div id="cdToolHint" class="cd-opt-hint"></div>
                       </div>
 
                       <div id="cd-stroke-cursor" class="cd-stroke-cursor"></div>
                       <div id="cd-stroke-band" class="cd-stroke-band"></div>
+
 
                       <!-- Layers: MAIN is the whole file and cannot be edited
                            or deleted; the rest are named bunches of strokes. -->
@@ -1072,21 +1117,18 @@
                           <span class="cd-layer-hint">▶ plots</span>
                         </div>
                         <div id="cd-layer-list" class="cd-layer-list"></div>
-                        <div id="cd-layer-empty" class="cd-layer-empty" style="display:none;">
-                          Select strokes, then SAVE AS LAYER
-                        </div>
+                        <button id="cdLayerAdd" class="cd-layer-add" type="button">+ NEW LAYER</button>
                       </div>
 
                       <div id="cd-stroke-bar" class="cd-stroke-bar" style="display:none;">
+                        <span id="cdStrokeEditingName" class="cd-stroke-editing">EDITING</span>
                         <span id="cdStrokeCount" class="cd-stroke-count">0 of 0 strokes</span>
                         <span id="cdStrokeLen" class="cd-stroke-len">0.00 m</span>
                         <span class="cd-stroke-spacer"></span>
                         <button id="cdStrokeAll" type="button">ALL</button>
                         <button id="cdStrokeNone" type="button">NONE</button>
                         <button id="cdStrokeInvert" type="button">INVERT</button>
-                        <button id="cdStrokeUpdateLayer" type="button" style="display:none;">UPDATE</button>
-                        <button id="cdStrokeNewLayer" type="button" class="cd-stroke-primary" disabled>SAVE AS LAYER</button>
-                        <button id="cdStrokeDone" type="button">✕</button>
+                        <button id="cdStrokeDone" type="button" class="cd-stroke-primary">DONE</button>
                       </div>
 
                       <!-- Reference photo: align a photo of the half-drawn sheet
@@ -1220,9 +1262,13 @@
                   </div>
                 </div>
 
-                <button id="cdEditStartBtn" class="cd-edit-start-btn">✎ EDIT GCODE</button>
+                <!-- EDIT GCODE retired in 1.19.0: the START / END range is now
+                     the Range tool in the 3D view's EDIT palette, which builds a
+                     selection instead of overwriting the source file. The panel
+                     below is kept only so Metro4 can still initialise the
+                     controls other scripts reference; it is never shown. -->
 
-                <!-- Trim the plotted range (opens below Edit Gcode) -->
+                <div style="display:none;">
                 <div id="cd-scrub-panel" class="cd-scrub-section" style="display:none;">
                   <div class="cd-scrub-head">
                     <div class="cd-section-title cd-scrub-title">
@@ -1263,6 +1309,7 @@
 
                   <button class="cd-btn-start cd-scrub-restart" onclick="triggerRestartFromScrubber()">✓ VALIDATE</button>
                 </div>
+                </div><!-- /retired EDIT GCODE wrapper -->
               </div>
 
             </div><!-- #cd-right -->

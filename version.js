@@ -3,6 +3,20 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-07-29',
+      version: '1.19.0',
+      changes: [
+        'Closes #22 — EDIT GCODE is retired and the START / END range is now the RANGE selection tool. It used to call redoJob(), which overwrote the source file in the editor: two ways to choose what gets plotted sitting side by side, one of them destructive. A range is also just a contiguous run of strokes, so it was duplicating what selection already expresses. Click each end or scrub with the slider; the 3D cone is the cursor, as it was in the old scrubber, and the readout still shows stroke position, coordinates, source line and that line\'s G-code.',
+        'The range is contextual: with a layer open it spans that layer\'s strokes, otherwise the whole file, and the panel says which. Nothing overwrites the editor any more — every route to choosing what to plot goes through selections and layers. resume.js is untouched on disk, and the old scrub markup stays hidden in the DOM because Metro4 initialises those controls at load and other scripts hold references to them.',
+        'Editing belongs to a layer rather than to a global mode. The VIEW / EDIT switch is gone; each layer row carries a pencil that opens it with the selection tools scoped to it, and the Photo overlay is global because it belongs to the drawing. + NEW LAYER creates an empty layer and opens it, so you paint INTO a layer instead of selecting first and saving after — SAVE AS LAYER and UPDATE are both gone, every gesture writes straight through.',
+        'Tools moved to a vertical rail on the left with a single contextual options panel beside it: mode for the painting tools, size for Brush, the full scrubber for Range. Previously a wide horizontal palette plus a second Range panel put three columns of chrome across the canvas, one of them nearly empty.',
+        'Edit-mode painting: strokes outside the layer fade to a faint grey rather than solid black — at 2,887 strokes a black file is a wall you cannot read a layer against — and selected strokes take the layer\'s own colour so the canvas and the panel agree. Layer rename, recolour and delete now work in both modes, with 26px hit targets and real icons.',
+        'Fix: opening a layer for editing came back empty. strokeLayerEdit() restored the layer\'s strokes and then called strokeRangeReset(), which cleared the markers AND the selection, undoing the restore one line later. Split into strokeRangeClearMarks() for opening a layer and strokeRangeReset() for the CLEAR RANGE button.',
+        'Fix: layer rename called window.prompt(), which Electron does not implement — it throws rather than prompting, so rename failed the first time it was pressed. It is inline contenteditable now (an <input> gets mutated by Metro4 into a component with a dropdown chevron), and keystrokes stop at the field so typing a name containing b, x, v or r no longer switches tools.',
+        'Performance: the range cursor built a new MeshPhongMaterial on every call, which runs on every slider tick while scrubbing — materials are created once and reused. Full colour-buffer repaints (~90k floats on a 12k-line file, re-uploaded to the GPU) fired on every mousemove while brushing and are now coalesced to one per animation frame.'
+      ]
+    },
+    {
+      date: '2026-07-29',
       version: '1.18.0',
       changes: [
         'Closes #21 — the 3D toolbar now leads with a VIEW / EDIT switch. VIEW keeps the controls for looking at and running a plot (speed, Simulate, Reset View); EDIT holds everything that changes what gets plotted (reference Photo, the selection tools, the layer panel, the selection bar). Nothing from one mode leaks into the other.',

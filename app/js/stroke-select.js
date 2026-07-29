@@ -27,6 +27,9 @@ var strokeBoxScreen = null;
 var strokeLastMove = null;
 var strokePaintMode = 'add';
 var strokeHover = -1;
+var strokeRangeA = -1;
+var strokeRangeB = -1;
+var strokeRangeNext = 'a';
 
 // Whether the current gesture selects or deselects. Alt inverts the mode for a
 // single stroke of work, the way it does in every raster editor.
@@ -235,21 +238,30 @@ function strokeApplyColors() {
   var colors = object.geometry.attributes.color;
   if (!originalToolpathColors) originalToolpathColors = new Float32Array(colors.array);
 
+  // Everything outside the layer fades to a faint grey rather than solid black:
+  // at 2,887 strokes a black file is a wall you cannot read the layer against.
+  // It stays just visible so there is context to brush new strokes in from.
   var total = colors.array.length;
   for (var i = 0; i < total; i += 3) {
-    colors.array[i] = 0;
-    colors.array[i + 1] = 0;
-    colors.array[i + 2] = 0;
+    colors.array[i] = 0.86;
+    colors.array[i + 1] = 0.85;
+    colors.array[i + 2] = 0.82;
   }
+
+  // The layer's own colour, so the canvas and the layer panel agree.
+  var el = strokeLayerById(strokeEditingLayerId);
+  var li = 0;
+  for (var n = 0; n < strokeLayers.length; n++) if (strokeLayers[n].id === strokeEditingLayerId) li = n;
+  var c = el ? strokeLayerColorOf(el, li) : [1, 0, 0];
 
   for (var k in strokeSelection) {
     var s = strokes[k];
     if (!s) continue;
     var from = s.a * 3, to = Math.min((s.b + 1) * 3, total);
     for (var j = from; j < to; j += 3) {
-      colors.array[j] = 1;
-      colors.array[j + 1] = 0;
-      colors.array[j + 2] = 0;
+      colors.array[j] = c[0];
+      colors.array[j + 1] = c[1];
+      colors.array[j + 2] = c[2];
     }
   }
 
@@ -268,8 +280,32 @@ function strokePaintHover(idx) {
   else strokePaintOne(idx, 0.6, 0.6, 0.6);
 }
 
+// Coalesce full repaints to one per animation frame. Brushing fires mousemove
+// far faster than the scene renders, and strokeApplyColors rewrites the whole
+// colour buffer (~90k floats on a 12k-line file) and re-uploads it to the GPU.
+// Doing that per event burns CPU for frames nobody sees.
+var _strokeRepaintQueued = false;
+
+function strokeApplyColorsSoon() {
+  if (_strokeRepaintQueued) return;
+  _strokeRepaintQueued = true;
+  requestAnimationFrame(function () {
+    _strokeRepaintQueued = false;
+    if (strokeEditActive) strokeApplyColors();
+  });
+}
+
 // Recolour a single stroke without touching the rest of the buffer. Hover fires
 // on every mousemove, and repainting all ~100k vertices each time would stutter.
+// The colour a stroke returns to when hover leaves it.
+function strokeBaseColor(idx) {
+  if (!strokeSelection[idx]) return [0.86, 0.85, 0.82];
+  var el = strokeLayerById(strokeEditingLayerId);
+  var li = 0;
+  for (var n = 0; n < strokeLayers.length; n++) if (strokeLayers[n].id === strokeEditingLayerId) li = n;
+  return el ? strokeLayerColorOf(el, li) : [1, 0, 0];
+}
+
 function strokePaintOne(idx, r, g, b) {
   var s = strokes[idx];
   if (!s || !object || !object.geometry || !object.geometry.attributes.color) return;
@@ -286,8 +322,8 @@ function strokePaintOne(idx, r, g, b) {
 function strokeSetHover(idx) {
   if (idx === strokeHover) return;
   if (strokeHover >= 0 && strokes[strokeHover]) {
-    var wasSel = !!strokeSelection[strokeHover];
-    strokePaintOne(strokeHover, wasSel ? 1 : 0, 0, 0);
+    var b = strokeBaseColor(strokeHover);
+    strokePaintOne(strokeHover, b[0], b[1], b[2]);
   }
   strokeHover = idx;
   if (strokeHover >= 0) strokePaintHover(strokeHover);
@@ -309,8 +345,8 @@ function strokeUpdateStats() {
   for (var k in strokeSelection) if (strokes[k]) len += strokes[k].len;
   $('#cdStrokeCount').text(strokeSelectionCount.toLocaleString() + ' of ' + strokes.length.toLocaleString() + ' strokes');
   $('#cdStrokeLen').text((len / 1000).toFixed(2) + ' m');
-  $('#cdStrokeNewLayer').prop('disabled', strokeSelectionCount === 0);
-  $('#cdStrokeUpdateLayer').prop('disabled', strokeSelectionCount === 0);
+  var el = strokeLayerById(strokeEditingLayerId);
+  $('#cdStrokeEditingName').text(el ? 'EDITING ' + el.name.toUpperCase() : 'EDITING');
 }
 
 // ── Pointer handling ───────────────────────────────────────────────────────
@@ -372,7 +408,17 @@ function strokeOnDown(ev) {
   strokeDragging = true;
   strokePushUndo();
 
-  if (strokeTool === 'box') {
+  if (strokeTool === 'range') {
+    // First click sets FROM, second sets TO, then it cycles — so dragging out a
+    // range is click, click, done.
+    var tolR = Math.max(strokeWorldPerPixel() * 8, 0.3);
+    var hitR = strokeNearest(w, tolR);
+    if (hitR >= 0) {
+      strokeRangeSet(strokeRangeNext, hitR);
+      strokeRangeNext = (strokeRangeNext === 'a') ? 'b' : 'a';
+      strokeRangeRefresh();
+    }
+  } else if (strokeTool === 'box') {
     strokeBoxStart = w;
     var r = renderer.domElement.getBoundingClientRect();
     strokeBoxScreen = { x: ev.clientX - r.left, y: ev.clientY - r.top };
@@ -412,7 +458,7 @@ function strokeOnMove(ev) {
   if (!w) return;
 
   if (strokeTool === 'brush') {
-    if (strokePickAt(w, strokeBrushMm, strokePaintOn(ev))) { strokeApplyColors(); strokeUpdateStats(); }
+    if (strokePickAt(w, strokeBrushMm, strokePaintOn(ev))) { strokeApplyColorsSoon(); strokeUpdateStats(); }
   } else if (strokeTool === 'box' && strokeBoxScreen) {
     // Rubber band only — the selection commits on mouseup, so dragging never
     // recolours the whole buffer per frame.
@@ -430,6 +476,7 @@ function strokeOnMove(ev) {
 
 function strokeOnUp(ev) {
   if (!strokeEditActive || !strokeDragging) return;
+  var commit = true;
   strokeDragging = false;
   if (typeof controls !== 'undefined' && controls) controls.enabled = true;
 
@@ -444,6 +491,9 @@ function strokeOnUp(ev) {
     strokeBoxScreen = null;
     $('#cd-stroke-band').hide();
   }
+
+  // Write the gesture through to the layer being edited.
+  if (commit) strokeCommitToLayer();
 }
 
 // The wheel stays with the camera zoom, so brush size gets [ and ] (the
@@ -487,12 +537,11 @@ function strokeSetMode(mode) {
     if (typeof controls !== 'undefined' && controls) controls.enabled = true;
     $('#cd-stroke-cursor').hide();
     $('#cd-photo-panel').hide();
+    strokeRangeCursorHide();
   }
 
-  $('.cd-mode-btn').removeClass('is-active').filter('[data-mode="' + strokeMode + '"]').addClass('is-active');
-  $('#cd-view-tools').toggle(!toEdit);
-  $('#cd-edit-tools').toggle(toEdit);
   $('#cd-stroke-tools').toggle(toEdit);
+  $('#cd-tool-options').toggle(toEdit);
   $('#cd-stroke-bar').toggle(toEdit);
   // The layer panel stays up in both modes — it is the plot selector, and you
   // need to change what you are plotting without entering edit mode.
@@ -521,12 +570,192 @@ function strokeSetPaintMode(mode) {
   if (strokeHover >= 0) strokePaintHover(strokeHover);
 }
 
+var STROKE_TOOL_INFO = {
+  pick:  { name: 'PICK',  hint: 'Click a stroke. Hover previews what the click does.' },
+  brush: { name: 'BRUSH', hint: 'Drag to paint. [ and ] resize. Alt inverts the mode.' },
+  box:   { name: 'BOX',   hint: 'Drag a marquee over the strokes you want.' },
+  range: { name: 'RANGE', hint: 'Click each end, or scrub with the slider.' }
+};
+
 function strokeSetTool(tool) {
+  // Roll-over is a Pick affordance only. In range mode the 3D cone is the
+  // cursor, and a green stroke under the pointer competes with it.
   if (tool !== 'pick') strokeSetHover(-1);
   strokeTool = tool;
-  $('.cd-stroke-tool').removeClass('is-active').filter('[data-tool="' + tool + '"]').addClass('is-active');
-  $('#cdStrokeBrushSize').toggle(tool === 'brush');
+
+  $('.cd-rail-btn').removeClass('is-active').filter('[data-tool="' + tool + '"]').addClass('is-active');
+
+  var info = STROKE_TOOL_INFO[tool] || STROKE_TOOL_INFO.pick;
+  $('#cdToolName').text(info.name);
+  $('#cdToolHint').text(info.hint);
+
+  // One panel per tool: only the groups this tool owns are shown, so there is
+  // never an empty panel sitting next to a full one.
+  $('.cd-opt-group[data-opt="brush"]').toggle(tool === 'brush');
+  $('.cd-opt-group[data-opt="range"]').toggle(tool === 'range');
+  $('.cd-opt-group[data-opt="paint"]').toggle(tool !== 'range');
+  $('#cd-tool-options').toggle(strokeMode === 'edit');
+
   if (tool !== 'brush') $('#cd-stroke-cursor').hide();
+  if (tool === 'range') strokeRangeRefresh(); else strokeRangeCursorHide();
+}
+
+// ── Range tool ─────────────────────────────────────────────────────────────
+//
+// A contiguous run of strokes — what the old START / END scrubber produced,
+// but as a selection rather than a destructive rewrite of the source file.
+//
+// The range is contextual: with a layer open it spans that layer's strokes,
+// otherwise the whole file. So "from here to the end" means what you would
+// expect in either case.
+
+function strokeRangeScope() {
+  var l = strokeLayerById(strokeEditingLayerId);
+  if (l) return Object.keys(l.sel).map(Number).sort(function (a, b) { return a - b; });
+  var all = [];
+  for (var i = 0; i < strokes.length; i++) all.push(i);
+  return all;
+}
+
+function strokeRangePos(scope, idx) {
+  for (var i = 0; i < scope.length; i++) if (scope[i] === idx) return i;
+  return -1;
+}
+
+// Set one end of the range to a stroke index, then apply.
+function strokeRangeSet(which, idx) {
+  if (which === 'b') strokeRangeB = idx; else strokeRangeA = idx;
+  strokeRangeApply();
+}
+
+// Set one end from a typed 1-based position within the scope.
+function strokeRangeSetPos(which, pos) {
+  var scope = strokeRangeScope();
+  var p = Math.max(1, Math.min(scope.length, parseInt(pos, 10) || 1)) - 1;
+  strokeRangeSet(which, scope[p]);
+}
+
+function strokeRangeApply() {
+  var scope = strokeRangeScope();
+  if (!scope.length) return;
+  var pa = strokeRangePos(scope, strokeRangeA);
+  var pb = strokeRangePos(scope, strokeRangeB);
+  if (pa < 0 && pb < 0) return;
+  if (pa < 0) pa = pb;
+  if (pb < 0) pb = scope.length - 1;
+
+  var lo = Math.min(pa, pb), hi = Math.max(pa, pb);
+  strokePushUndo();
+  strokeSelectAllQuiet(false);
+  for (var i = lo; i <= hi; i++) strokeSet(scope[i], true);
+
+  // Dragging the slider fires far faster than the scene renders.
+  strokeApplyColorsSoon();
+  strokeUpdateStats();
+  strokeRangeRefresh();
+}
+
+function strokeRangeRefresh() {
+  var scope = strokeRangeScope();
+  var pa = strokeRangePos(scope, strokeRangeA);
+  var pb = strokeRangePos(scope, strokeRangeB);
+
+  var $f = $('#cdStrokeRangeFrom'), $t = $('#cdStrokeRangeTo');
+  if (!$f.is(':focus')) $f.val(pa >= 0 ? pa + 1 : '');
+  if (!$t.is(':focus')) $t.val(pb >= 0 ? pb + 1 : '');
+  $f.attr('max', scope.length);
+  $t.attr('max', scope.length);
+
+  var l = strokeLayerById(strokeEditingLayerId);
+  $('#cdStrokeRangeScope').text((l ? l.name : 'whole file') + ' · ' + scope.length.toLocaleString());
+
+  $('.cd-range-mark').removeClass('is-next')
+    .filter('[data-end="' + strokeRangeNext + '"]').addClass('is-next');
+
+  // Slider tracks whichever end is next, so scrubbing always moves the marker
+  // you are about to place.
+  var pos = (strokeRangeNext === 'b') ? pb : pa;
+  var slider = document.getElementById('cdStrokeRangeSlider');
+  if (slider) {
+    slider.max = Math.max(0, scope.length - 1);
+    if (pos >= 0) slider.value = pos;
+    var span = slider.max - slider.min;
+    slider.style.setProperty('--pc-slider-fill', (span > 0 ? (slider.value - slider.min) / span * 100 : 0) + '%');
+  }
+
+  strokeRangeCursor(pos >= 0 ? scope[pos] : -1);
+}
+
+// The 3D cone is the cursor in range mode — the same affordance the old scrub
+// panel used. Roll-over highlighting is off here so the two do not compete.
+// Materials are built once and reused. Creating a MeshPhongMaterial per call
+// churned GPU programs on every slider tick while scrubbing.
+var _strokeConeMatOn = null;
+var _strokeConeMatOff = null;
+
+function strokeConeMaterial(on) {
+  if (on) {
+    if (!_strokeConeMatOn) _strokeConeMatOn = new THREE.MeshPhongMaterial({
+      color: 0xff8c00, specular: 0xcc6600, shininess: 100, opacity: 0.8, transparent: true
+    });
+    return _strokeConeMatOn;
+  }
+  if (!_strokeConeMatOff) _strokeConeMatOff = new THREE.MeshPhongMaterial({
+    color: 0x0000ff, specular: 0x0000ff, shininess: 100, opacity: 0.6, transparent: true
+  });
+  return _strokeConeMatOff;
+}
+
+function strokeRangeCursor(idx) {
+  if (typeof cone === 'undefined' || !cone) return;
+  var s = strokes[idx];
+  if (!s) { $('#cdStrokeRangeInfo .pc-pill').text('—'); return; }
+
+  var lp = object.userData.linePoints;
+  var p = lp[s.a];
+  cone.visible = true;
+  cone.position.x = p.x * strokeScale;
+  cone.position.y = p.y * strokeScale;
+  cone.position.z = p.z * strokeScale;
+  cone.material = strokeConeMaterial(true);
+
+  var scope = strokeRangeScope();
+  var gtext = '';
+  if (s.lineA >= 0 && typeof editor !== 'undefined') {
+    gtext = editor.session.getLine(s.lineA) || '';
+    if (gtext.length > 46) gtext = gtext.substring(0, 46) + '…';
+  }
+  $('#cdStrokeRangeInfo').html(
+    '<div class="pc-info-row pc-info-row-pill"><span class="pc-pill">' +
+      (strokeRangeNext === 'b' ? 'TO' : 'FROM') + ' · stroke ' +
+      (strokeRangePos(scope, idx) + 1) + '</span></div>' +
+    '<div class="pc-info-row pc-info-row-coords">X:' + (p.x * strokeScale).toFixed(2) +
+      ' Y:' + (p.y * strokeScale).toFixed(2) + ' · line ' + (s.lineA + 1) + '</div>' +
+    '<div class="pc-info-row pc-info-gcode">' + $('<i>').text(gtext).html() + '</div>'
+  );
+}
+
+function strokeRangeCursorHide() {
+  if (typeof cone !== 'undefined' && cone) cone.material = strokeConeMaterial(false);
+}
+
+// Just the markers. Opening a layer needs this WITHOUT touching the selection —
+// clearing both is what made an edited layer come back empty.
+function strokeRangeClearMarks() {
+  strokeRangeA = -1;
+  strokeRangeB = -1;
+  strokeRangeNext = 'a';
+  strokeRangeRefresh();
+}
+
+// The CLEAR RANGE button: markers and the strokes they selected.
+function strokeRangeReset() {
+  strokeRangeClearMarks();
+  strokeSelectAllQuiet(false);
+  strokeApplyColors();
+  strokeUpdateStats();
+  strokeCommitToLayer();
+  strokeRangeRefresh();
 }
 
 // ── Layers ─────────────────────────────────────────────────────────────────
@@ -608,25 +837,29 @@ function strokeLayerFromSelection(id, name) {
   return { id: id, name: name, sel: sel, count: st.count, len: st.len };
 }
 
+// New layers start empty and open for editing — you paint into a layer rather
+// than selecting first and saving afterwards.
 function strokeLayerNew() {
-  if (!strokeSelectionCount) return;
+  if (!strokeEnsureBuilt()) {
+    Metro.toast.create('Load a G-code file first.', null, 3000, 'bg-orange');
+    return;
+  }
   var id = 'L' + strokeLayerSeq++;
-  var layer = strokeLayerFromSelection(id, 'Layer ' + (strokeLayers.length + 1));
-  strokeLayers.push(layer);
-  strokeEditingLayerId = id;
+  strokeLayers.push({ id: id, name: 'Layer ' + (strokeLayers.length + 1), sel: {}, count: 0, len: 0 });
   strokeLayersSave();
-  strokeRefreshLayerUI();
-  Metro.toast.create('Saved "' + layer.name + '" — ' + layer.count + ' strokes.', null, 3000, 'bg-green');
+  strokeLayerEdit(id);
 }
 
-function strokeLayerUpdate() {
+// While a layer is open, every change writes straight through to it. There is
+// no separate save step — the layer IS what you are editing.
+function strokeCommitToLayer() {
   var l = strokeLayerById(strokeEditingLayerId);
-  if (!l || !strokeSelectionCount) return;
+  if (!l) return;
   var next = strokeLayerFromSelection(l.id, l.name);
+  next.ci = l.ci;
   strokeLayers[strokeLayers.indexOf(l)] = next;
   strokeLayersSave();
   strokeRefreshLayerUI();
-  Metro.toast.create('Updated "' + next.name + '" — ' + next.count + ' strokes.', null, 3000, 'bg-green');
 }
 
 function strokeLayerDelete(id) {
@@ -640,16 +873,76 @@ function strokeLayerDelete(id) {
   strokeRepaint();
 }
 
+// Inline rename — Electron does not implement window.prompt(), so a prompt
+// here would throw rather than rename.
 function strokeLayerRename(id) {
   var l = strokeLayerById(id);
   if (!l) return;
-  var name = window.prompt('Layer name', l.name);
-  if (name === null) return;
-  name = name.trim();
-  if (!name) return;
-  l.name = name;
+  var $row = $('#cd-layer-list .cd-layer-row[data-id="' + id + '"]');
+  var $name = $row.find('.cd-layer-name');
+  if ($name.attr('contenteditable') === 'true') return;
+
+  // contenteditable rather than an <input>: Metro4 mutates inputs it finds in
+  // the DOM and turns this one into a styled component with a dropdown chevron.
+  $name.attr('contenteditable', 'true').addClass('is-renaming').focus();
+
+  var range = document.createRange();
+  range.selectNodeContents($name[0]);
+  var sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+
+  var done = false;
+  function commit(save) {
+    if (done) return;
+    done = true;
+    var v = $.trim($name.text());
+    if (save && v) { l.name = v; strokeLayersSave(); }
+    $name.removeAttr('contenteditable').removeClass('is-renaming');
+    strokeRefreshLayerUI();
+  }
+
+  // Keystrokes must not reach the document handler, or typing "b" in a name
+  // would switch to the brush tool.
+  $name.on('keydown', function (e) {
+    e.stopPropagation();
+    if (e.which === 13) { e.preventDefault(); commit(true); }
+    else if (e.which === 27) { e.preventDefault(); commit(false); }
+  }).on('blur', function () { commit(true); })
+    .on('click', function (e) { e.stopPropagation(); });
+}
+
+function strokeLayerSetColor(id, ci) {
+  var l = strokeLayerById(id);
+  if (!l) return;
+  l.ci = ci;
   strokeLayersSave();
   strokeRefreshLayerUI();
+  strokeRepaint();
+}
+
+// Swatch popover, anchored to the row that opened it.
+function strokeLayerColorPicker(id, anchor) {
+  $('#cd-layer-colors').remove();
+  var $pop = $('<div id="cd-layer-colors" class="cd-layer-colors"></div>');
+  STROKE_LAYER_COLORS.forEach(function (c, i) {
+    $pop.append('<button type="button" class="cd-layer-color" data-ci="' + i + '" ' +
+      'aria-label="Colour ' + (i + 1) + '" style="background:' + strokeLayerRgb(i) + '"></button>');
+  });
+  $('#cd-layer-panel').append($pop);
+
+  var pr = anchor.getBoundingClientRect();
+  var wr = document.getElementById('cd-layer-panel').getBoundingClientRect();
+  $pop.css({ top: (pr.bottom - wr.top + 4) + 'px', left: (pr.left - wr.left) + 'px' });
+
+  $pop.on('click', '.cd-layer-color', function (e) {
+    e.stopPropagation();
+    strokeLayerSetColor(id, parseInt($(this).data('ci'), 10));
+    $pop.remove();
+  });
+  setTimeout(function () {
+    $(document).one('click', function () { $('#cd-layer-colors').remove(); });
+  }, 0);
 }
 
 // Open a layer for editing: switch to edit mode and restore its strokes as the
@@ -658,12 +951,20 @@ function strokeLayerEdit(id) {
   var l = strokeLayerById(id);
   if (!l) return;
   strokeEditingLayerId = id;
-  if (strokeMode !== 'edit') strokeSetMode('edit');
+  strokeSetMode('edit');
   strokeSelectAllQuiet(false);
   for (var k in l.sel) if (strokes[k]) strokeSet(Number(k), true);
+  strokeUndoStack = [];
+  strokeRangeClearMarks();
   strokeRepaint();
   strokeUpdateStats();
   strokeRefreshLayerUI();
+}
+
+function strokeLayerEditDone() {
+  strokeCommitToLayer();
+  strokeEditingLayerId = null;
+  strokeSetMode('view');
 }
 
 function strokeSelectAllQuiet(on) {
@@ -680,6 +981,11 @@ function strokeSetPlotLayer(id) {
 
 function strokeLayerColor(i) {
   return STROKE_LAYER_COLORS[i % STROKE_LAYER_COLORS.length];
+}
+
+// A layer's own colour if one was chosen, else its position in the palette.
+function strokeLayerColorOf(l, idx) {
+  return strokeLayerColor((l && l.ci !== undefined) ? l.ci : idx);
 }
 
 // ── Layer UI ───────────────────────────────────────────────────────────────
@@ -704,28 +1010,26 @@ function strokeRefreshLayerUI() {
         '<button class="cd-layer-plot' + (plotting ? ' is-on' : '') + '" data-act="plot" type="button" ' +
           'aria-label="Plot ' + name + '" title="Plot this">▶</button>' +
         '<span class="cd-layer-swatch' + (isMain ? ' is-main' : '') + '"' +
+          (isMain ? '' : ' data-act="color" role="button" tabindex="0" title="Change colour"') +
           (rgb ? ' style="background:' + rgb + '"' : '') + '></span>' +
         '<span class="cd-layer-name">' + $('<i>').text(name).html() + '</span>' +
         '<span class="cd-layer-count">' + count.toLocaleString() + '</span>' +
         (isMain ? '' :
-          '<button class="cd-layer-btn" data-act="rename" type="button" aria-label="Rename" title="Rename">✎</button>' +
-          '<button class="cd-layer-btn" data-act="delete" type="button" aria-label="Delete" title="Delete layer">✕</button>') +
+          '<button class="cd-layer-btn cd-layer-edit' + (editing ? ' is-on' : '') + '" data-act="editlayer" ' +
+            'type="button" aria-label="Edit strokes" title="Edit this layer\'s strokes">' +
+            '<i class="fas fa-pen" data-act="editlayer"></i></button>' +
+          '<button class="cd-layer-btn" data-act="rename" type="button" aria-label="Rename" title="Rename">' +
+            '<i class="fas fa-font" data-act="rename"></i></button>' +
+          '<button class="cd-layer-btn" data-act="delete" type="button" aria-label="Delete" title="Delete layer">' +
+            '<i class="fas fa-times" data-act="delete"></i></button>') +
       '</div>';
   }
 
   var $list = $('#cd-layer-list').empty();
   $list.append(row(null, 'MAIN', total, null, true));
   strokeLayers.forEach(function (l, i) {
-    $list.append(row(l.id, l.name, l.count, strokeLayerRgb(i), false));
+    $list.append(row(l.id, l.name, l.count, strokeLayerRgb((l.ci !== undefined) ? l.ci : i), false));
   });
-
-  $('#cd-layer-panel').toggleClass('is-editable', editable);
-  $('#cd-layer-empty').toggle(strokeLayers.length === 0 && editable);
-
-  var el = strokeLayerById(strokeEditingLayerId);
-  $('#cdStrokeUpdateLayer').toggle(!!el).text(el ? 'UPDATE ' + el.name.toUpperCase() : 'UPDATE');
-
-  $('#cdStrokeEditLabel').text(strokeLayers.length ? 'EDIT · ' + strokeLayers.length : 'EDIT');
 
   // RUN panel: readout only.
   var pl = strokeLayerById(strokePlotLayerId);
@@ -755,8 +1059,10 @@ function strokeRepaint() {
 function strokePaintViewMode() {
   var pl = strokeLayerById(strokePlotLayerId);
 
-  // Nothing to say: no layers and no target — hand the buffer back untouched.
-  if ((!strokeLayers.length && !pl) || !strokeEnsureBuilt()) {
+  // MAIN means the whole file, so show the whole file exactly as it is —
+  // tinting the layers here made the preview disagree with what START would
+  // draw, and turned the drawing into a colour chart nobody asked for.
+  if (!pl || !strokeEnsureBuilt()) {
     if (typeof restoreToolpathColors === 'function') restoreToolpathColors();
     return;
   }
@@ -782,31 +1088,17 @@ function strokePaintViewMode() {
     }
   }
 
-  if (pl) {
-    // A layer is armed for plotting: show only it, so the preview matches what
-    // START will actually draw. Everything else takes the background colour,
-    // which reads as hidden against the white work area (the toolpath is one
-    // continuous THREE.Line, so strokes cannot be removed from it).
-    for (var i = 0; i < total; i += 3) {
-      colors.array[i] = br; colors.array[i + 1] = bgG; colors.array[i + 2] = bb;
-    }
-    var ci = 0;
-    for (var n = 0; n < strokeLayers.length; n++) if (strokeLayers[n].id === pl.id) ci = n;
-    var c = strokeLayerColor(ci);
-    fill(pl.sel, c[0], c[1], c[2]);
-  } else {
-    // No target: ghost the file and tint each layer so the split is readable.
-    var t = 0.82, inv = 1 - t;
-    for (var i2 = 0; i2 < total; i2 += 3) {
-      colors.array[i2]     = originalToolpathColors[i2]     * inv + br  * t;
-      colors.array[i2 + 1] = originalToolpathColors[i2 + 1] * inv + bgG * t;
-      colors.array[i2 + 2] = originalToolpathColors[i2 + 2] * inv + bb  * t;
-    }
-    strokeLayers.forEach(function (l, idx) {
-      var lc = strokeLayerColor(idx);
-      fill(l.sel, lc[0], lc[1], lc[2]);
-    });
+  // A layer is armed: show only it, so the preview matches what START will
+  // actually draw. Everything else takes the background colour, which reads as
+  // hidden against the white work area (the toolpath is one continuous
+  // THREE.Line, so strokes cannot be removed from it).
+  for (var i = 0; i < total; i += 3) {
+    colors.array[i] = br; colors.array[i + 1] = bgG; colors.array[i + 2] = bb;
   }
+  var ci = 0;
+  for (var n = 0; n < strokeLayers.length; n++) if (strokeLayers[n].id === pl.id) ci = n;
+  var c = strokeLayerColorOf(pl, ci);
+  fill(pl.sel, c[0], c[1], c[2]);
 
   colors.needsUpdate = true;
 }
@@ -868,29 +1160,56 @@ function strokeBuildGcode(keep) {
 // ── Wiring ─────────────────────────────────────────────────────────────────
 
 $(document).ready(function () {
-  $('#cdStrokeEditBtn').on('click', function () {
-    if (strokeEditActive) strokeEditExit(); else strokeEditEnter();
-  });
-
-  $('#cd-stroke-tools').on('click', '.cd-stroke-tool', function () {
+  $('#cd-stroke-tools').on('click', '.cd-rail-btn', function () {
     strokeSetTool($(this).data('tool'));
   });
 
-  $('#cd-stroke-tools').on('click', '.cd-stroke-mode', function () {
+  $('#cd-tool-options').on('click', '.cd-stroke-mode', function () {
     strokeSetPaintMode($(this).data('mode'));
   });
 
   $('#cdStrokeBrushDown').on('click', function () { strokeBrushResize(0.8); });
   $('#cdStrokeBrushUp').on('click', function () { strokeBrushResize(1.25); });
 
-  $('.cd-mode-btn').on('click', function () { strokeSetMode($(this).data('mode')); });
+  $('#cdStrokeRangeFrom, #cdStrokeRangeTo').on('keydown', function (e) {
+    if (e.which === 13) $(this).blur();
+    else if (e.which === 27) { strokeRangeRefresh(); $(this).blur(); }
+  }).on('focus', function () {
+    strokeRangeNext = $(this).closest('.cd-range-mark').data('end');
+    strokeRangeRefresh();
+  }).on('blur', function () {
+    strokeRangeSetPos($(this).closest('.cd-range-mark').data('end'), $(this).val());
+  });
 
-  $('#cdStrokeAll').on('click', function () { strokeSelectAll(true); });
-  $('#cdStrokeNone').on('click', function () { strokeSelectAll(false); });
-  $('#cdStrokeInvert').on('click', strokeInvert);
-  $('#cdStrokeNewLayer').on('click', strokeLayerNew);
-  $('#cdStrokeUpdateLayer').on('click', strokeLayerUpdate);
-  $('#cdStrokeDone').on('click', strokeEditExit);
+  // Clicking a marker hands the slider and the next click over to it.
+  $('#cd-tool-options').on('click', '.cd-range-mark', function (e) {
+    if ($(e.target).is('input')) return;
+    strokeRangeNext = $(this).data('end');
+    strokeRangeRefresh();
+  });
+
+  $('#cdStrokeRangeSlider').on('input', function () {
+    var scope = strokeRangeScope();
+    var p = Math.max(0, Math.min(scope.length - 1, parseInt(this.value, 10) || 0));
+    strokeRangeSet(strokeRangeNext, scope[p]);
+  });
+
+  $('#cd-tool-options').on('click', '.cd-range-step', function () {
+    var slider = document.getElementById('cdStrokeRangeSlider');
+    if (!slider) return;
+    var next = Math.max(parseInt(slider.min, 10),
+      Math.min(parseInt(slider.max, 10), parseInt(slider.value, 10) + parseInt($(this).data('step'), 10)));
+    slider.value = next;
+    $(slider).trigger('input');
+  });
+
+  $('#cdStrokeRangeReset').on('click', strokeRangeReset);
+
+  $('#cdStrokeAll').on('click', function () { strokeSelectAll(true); strokeCommitToLayer(); });
+  $('#cdStrokeNone').on('click', function () { strokeSelectAll(false); strokeCommitToLayer(); });
+  $('#cdStrokeInvert').on('click', function () { strokeInvert(); strokeCommitToLayer(); });
+  $('#cdLayerAdd').on('click', strokeLayerNew);
+  $('#cdStrokeDone').on('click', strokeLayerEditDone);
 
   // Layer list: the row opens it for editing, the buttons rename / delete.
   $('#cd-layer-list').on('click', '.cd-layer-row', function (e) {
@@ -899,17 +1218,15 @@ $(document).ready(function () {
     if (act === 'plot') { e.stopPropagation(); strokeSetPlotLayer(id); return; }
     if (act === 'delete') { e.stopPropagation(); strokeLayerDelete(id); return; }
     if (act === 'rename') { e.stopPropagation(); strokeLayerRename(id); return; }
-    if (strokeMode !== 'edit') { strokeSetPlotLayer(id); return; }
-    if (!id) {
-      // MAIN — clear the working selection and stop editing any layer.
-      strokeEditingLayerId = null;
-      strokeSelectAllQuiet(false);
-      strokeRepaint();
-      strokeUpdateStats();
-      strokeRefreshLayerUI();
+    if (act === 'color') { e.stopPropagation(); strokeLayerColorPicker(id, e.target); return; }
+    if (act === 'editlayer') {
+      e.stopPropagation();
+      if (strokeEditingLayerId === id) strokeLayerEditDone(); else strokeLayerEdit(id);
       return;
     }
-    strokeLayerEdit(id);
+    if ($(e.target).is('input') || $(e.target).attr('contenteditable') === 'true') return;
+    // The row itself arms the layer for plotting; editing is the ✎ button.
+    strokeSetPlotLayer(id);
   });
 
   // Keyboard equivalent of clicking a layer row.
@@ -935,10 +1252,11 @@ $(document).ready(function () {
   $(document).on('keydown', function (e) {
     if (!strokeEditActive) return;
     if ((e.metaKey || e.ctrlKey) && e.which === 90) { e.preventDefault(); strokeUndo(); }
-    else if (e.which === 27) strokeEditExit();
+    else if (e.which === 27) strokeLayerEditDone();
     else if (e.which === 66) strokeSetTool('brush');
     else if (e.which === 88) strokeSetTool('box');
     else if (e.which === 86) strokeSetTool('pick');
+    else if (e.which === 82) strokeSetTool('range');
     else if (e.which === 219) strokeBrushResize(0.8);
     else if (e.which === 221) strokeBrushResize(1.25);
     else if (e.which === 65) strokeSetPaintMode('add');
