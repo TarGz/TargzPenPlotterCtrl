@@ -1083,7 +1083,13 @@
                           </div>
                         </div>
 
-                        <input type="range" id="cdStrokeRangeSlider" class="cd-scrub-slider" min="0" max="100" value="0">
+                        <!-- Two thumbs, one per end. Each carries its own
+                             colour; the one taking the next click is filled. -->
+                        <div class="cd-range-slider">
+                          <div class="cd-range-track"><div id="cdRangeFill" class="cd-range-fill"></div></div>
+                          <input type="range" id="cdStrokeRangeSliderA" class="cd-range-input is-a" min="0" max="100" value="0" aria-label="Range start">
+                          <input type="range" id="cdStrokeRangeSliderB" class="cd-range-input is-b" min="0" max="100" value="100" aria-label="Range end">
+                        </div>
 
                         <div class="cd-scrub-steps">
                           <button class="cd-range-step" data-step="-100" type="button">-100</button>

@@ -597,7 +597,8 @@ function strokeSetTool(tool) {
   $('#cd-tool-options').toggle(strokeMode === 'edit');
 
   if (tool !== 'brush') $('#cd-stroke-cursor').hide();
-  if (tool === 'range') strokeRangeRefresh(); else strokeRangeCursorHide();
+  if (tool === 'range') { strokeRangeDefaults(); strokeRangeRefresh(); }
+  else strokeRangeCursorHide();
 }
 
 // ── Range tool ─────────────────────────────────────────────────────────────
@@ -605,16 +606,24 @@ function strokeSetTool(tool) {
 // A contiguous run of strokes — what the old START / END scrubber produced,
 // but as a selection rather than a destructive rewrite of the source file.
 //
-// The range is contextual: with a layer open it spans that layer's strokes,
-// otherwise the whole file. So "from here to the end" means what you would
-// expect in either case.
-
+// The range spans the WHOLE FILE, not the open layer's strokes. Scoping it to
+// the layer made it useless in the case it is most wanted: a new layer is empty,
+// so a layer-scoped range would have nothing to walk and could never put
+// anything in. You are picking strokes out of the drawing and into the layer.
 function strokeRangeScope() {
-  var l = strokeLayerById(strokeEditingLayerId);
-  if (l) return Object.keys(l.sel).map(Number).sort(function (a, b) { return a - b; });
   var all = [];
   for (var i = 0; i < strokes.length; i++) all.push(i);
   return all;
+}
+
+// Park the ends at the first and last stroke so the tool opens meaning "all of
+// it". Deliberately does NOT apply — applying on open would replace whatever
+// the layer already holds with the entire file the moment you picked the tool.
+function strokeRangeDefaults() {
+  var scope = strokeRangeScope();
+  if (!scope.length) return;
+  if (strokeRangeA < 0) strokeRangeA = scope[0];
+  if (strokeRangeB < 0) strokeRangeB = scope[scope.length - 1];
 }
 
 function strokeRangePos(scope, idx) {
@@ -666,23 +675,32 @@ function strokeRangeRefresh() {
   $f.attr('max', scope.length);
   $t.attr('max', scope.length);
 
-  var l = strokeLayerById(strokeEditingLayerId);
-  $('#cdStrokeRangeScope').text((l ? l.name : 'whole file') + ' · ' + scope.length.toLocaleString());
+  $('#cdStrokeRangeScope').text('of ' + scope.length.toLocaleString() + ' strokes');
 
   $('.cd-range-mark').removeClass('is-next')
     .filter('[data-end="' + strokeRangeNext + '"]').addClass('is-next');
 
-  // Slider tracks whichever end is next, so scrubbing always moves the marker
-  // you are about to place.
-  var pos = (strokeRangeNext === 'b') ? pb : pa;
-  var slider = document.getElementById('cdStrokeRangeSlider');
-  if (slider) {
-    slider.max = Math.max(0, scope.length - 1);
-    if (pos >= 0) slider.value = pos;
-    var span = slider.max - slider.min;
-    slider.style.setProperty('--pc-slider-fill', (span > 0 ? (slider.value - slider.min) / span * 100 : 0) + '%');
+  // One thumb per end, each independently draggable.
+  var max = Math.max(0, scope.length - 1);
+  var sa = document.getElementById('cdStrokeRangeSliderA');
+  var sb = document.getElementById('cdStrokeRangeSliderB');
+  if (sa && sb) {
+    sa.max = max; sb.max = max;
+    if (pa >= 0) sa.value = pa;
+    if (pb >= 0) sb.value = pb;
+    var va = parseInt(sa.value, 10) || 0;
+    var vb = parseInt(sb.value, 10) || 0;
+    var lo = Math.min(va, vb), hi = Math.max(va, vb);
+    var fill = document.getElementById('cdRangeFill');
+    if (fill && max > 0) {
+      fill.style.left = (lo / max * 100) + '%';
+      fill.style.width = ((hi - lo) / max * 100) + '%';
+    }
+    $(sa).toggleClass('is-next', strokeRangeNext === 'a');
+    $(sb).toggleClass('is-next', strokeRangeNext === 'b');
   }
 
+  var pos = (strokeRangeNext === 'b') ? pb : pa;
   strokeRangeCursor(pos >= 0 ? scope[pos] : -1);
 }
 
@@ -745,6 +763,7 @@ function strokeRangeClearMarks() {
   strokeRangeA = -1;
   strokeRangeB = -1;
   strokeRangeNext = 'a';
+  if (strokeTool === 'range') strokeRangeDefaults();
   strokeRangeRefresh();
 }
 
@@ -1188,17 +1207,23 @@ $(document).ready(function () {
     strokeRangeRefresh();
   });
 
-  $('#cdStrokeRangeSlider').on('input', function () {
+  // Dragging a thumb moves its own end and makes it the active one, so the
+  // cone and the step buttons follow whichever you last touched.
+  $('#cdStrokeRangeSliderA, #cdStrokeRangeSliderB').on('input', function () {
+    var end = $(this).hasClass('is-b') ? 'b' : 'a';
+    strokeRangeNext = end;
     var scope = strokeRangeScope();
+    if (!scope.length) return;
     var p = Math.max(0, Math.min(scope.length - 1, parseInt(this.value, 10) || 0));
-    strokeRangeSet(strokeRangeNext, scope[p]);
+    strokeRangeSet(end, scope[p]);
   });
 
   $('#cd-tool-options').on('click', '.cd-range-step', function () {
-    var slider = document.getElementById('cdStrokeRangeSlider');
+    var slider = document.getElementById(
+      strokeRangeNext === 'b' ? 'cdStrokeRangeSliderB' : 'cdStrokeRangeSliderA');
     if (!slider) return;
-    var next = Math.max(parseInt(slider.min, 10),
-      Math.min(parseInt(slider.max, 10), parseInt(slider.value, 10) + parseInt($(this).data('step'), 10)));
+    var next = Math.max(0, Math.min(parseInt(slider.max, 10),
+      (parseInt(slider.value, 10) || 0) + parseInt($(this).data('step'), 10)));
     slider.value = next;
     $(slider).trigger('input');
   });

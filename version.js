@@ -3,6 +3,15 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-07-29',
+      version: '1.20.0',
+      changes: [
+        'RANGE gets two thumbs, one per end, instead of a single thumb that moved whichever end was active. FROM is orange and TO is blue so the two never read alike, the marker cards echo the same colours, the end taking the next click is filled solid while the other stays hollow, and the span between them is tinted on the track. Built as two native range inputs stacked over a shared track with pointer-events on the thumbs only — otherwise the upper input swallows every click and the lower thumb cannot be dragged where they overlap.',
+        'RANGE now opens with FROM at the first stroke and TO at the last, so it starts meaning "all of it". The ends are shown but NOT applied: applying on open would replace whatever the layer already holds with the entire file the moment the tool was picked.',
+        'The range scope is the whole file again, not the open layer\'s strokes. Scoping it to the layer made it useless in the case it is most wanted — a new layer is empty, so a layer-scoped range had nothing to walk and could never put anything in. You are picking strokes out of the drawing and into the layer, so the file is the right scope.'
+      ]
+    },
+    {
+      date: '2026-07-29',
       version: '1.19.0',
       changes: [
         'Closes #22 — EDIT GCODE is retired and the START / END range is now the RANGE selection tool. It used to call redoJob(), which overwrote the source file in the editor: two ways to choose what gets plotted sitting side by side, one of them destructive. A range is also just a contiguous run of strokes, so it was duplicating what selection already expresses. Click each end or scrub with the slider; the 3D cone is the cursor, as it was in the old scrubber, and the readout still shows stroke position, coordinates, source line and that line\'s G-code.',

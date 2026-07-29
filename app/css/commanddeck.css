@@ -2101,6 +2101,102 @@
   gap: 8px;
 }
 
+/* Dual-thumb slider: two native ranges stacked over a shared track. Only the
+   thumbs take pointer events, so the lower input is still draggable where the
+   upper one overlaps it. */
+.cd-range-slider {
+  position: relative;
+  height: 22px;
+}
+
+.cd-range-track {
+  position: absolute;
+  top: 9px;
+  left: 0;
+  right: 0;
+  height: 4px;
+  border-radius: 100px;
+  background: var(--pc-border-default, rgba(0, 0, 0, 0.1));
+}
+
+.cd-range-fill {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 100px;
+  background: var(--pc-primary, #FF6A00);
+  opacity: 0.35;
+}
+
+.cd-range-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 22px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+  pointer-events: none;
+  outline: none;
+}
+
+.cd-range-input::-webkit-slider-runnable-track {
+  height: 4px;
+  background: transparent;
+}
+
+.cd-range-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  pointer-events: auto;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  box-sizing: border-box;
+  margin-top: -6px;
+  cursor: grab;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  transition: transform 0.15s;
+}
+
+.cd-range-input::-moz-range-thumb {
+  pointer-events: auto;
+  width: 16px; height: 16px; border-radius: 50%;
+  box-sizing: border-box; background: #fff; cursor: grab;
+}
+
+/* FROM and TO carry their own colours so the two ends never read alike. */
+.cd-range-input.is-a::-webkit-slider-thumb { border: 3px solid var(--pc-primary, #FF6A00); }
+.cd-range-input.is-a::-moz-range-thumb     { border: 3px solid var(--pc-primary, #FF6A00); }
+.cd-range-input.is-b::-webkit-slider-thumb { border: 3px solid #1D6FB8; }
+.cd-range-input.is-b::-moz-range-thumb     { border: 3px solid #1D6FB8; }
+
+/* The end taking the next click is filled solid rather than hollow. */
+.cd-range-input.is-a.is-next::-webkit-slider-thumb {
+  background: var(--pc-primary, #FF6A00);
+  transform: scale(1.12);
+}
+.cd-range-input.is-b.is-next::-webkit-slider-thumb {
+  background: #1D6FB8;
+  transform: scale(1.12);
+}
+.cd-range-input.is-a.is-next::-moz-range-thumb { background: var(--pc-primary, #FF6A00); }
+.cd-range-input.is-b.is-next::-moz-range-thumb { background: #1D6FB8; }
+
+/* Marker cards echo the thumb colours. */
+.cd-range-mark[data-end="b"].is-next {
+  border-color: #1D6FB8;
+  background: rgba(29, 111, 184, 0.10);
+}
+.cd-range-mark[data-end="b"].is-next .cd-range-mark-label,
+.cd-range-mark[data-end="b"].is-next .cd-range-mark-input {
+  color: #1D6FB8;
+}
+
 .cd-range-head {
   display: flex;
   align-items: baseline;
