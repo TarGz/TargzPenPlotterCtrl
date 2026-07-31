@@ -545,7 +545,6 @@ function strokeSetMode(mode) {
   $('#cd-stroke-bar').toggle(toEdit);
   // The layer panel stays up in both modes — it is the plot selector, and you
   // need to change what you are plotting without entering edit mode.
-  $('#cd-layer-panel').toggle(strokeHasFile() || toEdit);
   strokeRefreshLayerUI();
 
   if (toEdit) {
@@ -811,8 +810,9 @@ function strokeEnsureBuilt() {
   return strokes.length > 0;
 }
 
-// Cheap "is there a toolpath?" test — used to decide whether the layer panel
-// belongs on screen, without paying for strokeBuild().
+// Cheap "is there a toolpath?" test, without paying for strokeBuild(). The
+// panel itself is always on screen now; this gates + NEW LAYER, since there is
+// nothing to put in a layer until a file is loaded.
 function strokeHasFile() {
   return typeof object !== 'undefined' && !!object && !!object.userData && !!object.userData.linePoints;
 }
@@ -842,7 +842,6 @@ function strokeLayersLoad() {
   // + NEW LAYER lives inside it and is the only way into EDIT, so gating the
   // panel on strokeLayers.length made the whole editor unreachable on a machine
   // with no saved layers in localStorage.
-  $('#cd-layer-panel').toggle(strokeHasFile() || strokeMode === 'edit');
   strokeRefreshLayerUI();
   strokeRepaint();
 }
@@ -1043,7 +1042,9 @@ function strokeRefreshLayerUI() {
     return '<div class="cd-layer-row' + (editing ? ' is-editing' : '') + (plotting ? ' is-plotting' : '') +
         '" data-id="' + (id || '') + '" tabindex="0">' +
         '<button class="cd-layer-plot' + (plotting ? ' is-on' : '') + '" data-act="plot" type="button" ' +
-          'aria-label="Plot ' + name + '" title="Plot this">▶</button>' +
+          'role="radio" aria-checked="' + (plotting ? 'true' : 'false') + '" ' +
+          'aria-label="Plot ' + name + '" title="Plot this">' +
+          (plotting ? '<i class="fas fa-check" data-act="plot"></i>' : '') + '</button>' +
         '<span class="cd-layer-swatch' + (isMain ? ' is-main' : '') + '"' +
           (isMain ? '' : ' data-act="color" role="button" tabindex="0" title="Change colour"') +
           (rgb ? ' style="background:' + rgb + '"' : '') + '></span>' +
@@ -1065,6 +1066,8 @@ function strokeRefreshLayerUI() {
   strokeLayers.forEach(function (l, i) {
     $list.append(row(l.id, l.name, l.count, strokeLayerRgb((l.ci !== undefined) ? l.ci : i), false));
   });
+
+  $('#cdLayerAdd').prop('disabled', !strokeHasFile());
 
   // RUN panel: readout only.
   var pl = strokeLayerById(strokePlotLayerId);

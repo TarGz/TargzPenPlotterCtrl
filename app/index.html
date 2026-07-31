@@ -1115,17 +1115,6 @@
                       <div id="cd-stroke-band" class="cd-stroke-band"></div>
 
 
-                      <!-- Layers: MAIN is the whole file and cannot be edited
-                           or deleted; the rest are named bunches of strokes. -->
-                      <div id="cd-layer-panel" class="cd-layer-panel" style="display:none;">
-                        <div class="cd-layer-head">
-                          <span>LAYERS</span>
-                          <span class="cd-layer-hint">▶ plots</span>
-                        </div>
-                        <div id="cd-layer-list" class="cd-layer-list"></div>
-                        <button id="cdLayerAdd" class="cd-layer-add" type="button">+ NEW LAYER</button>
-                      </div>
-
                       <div id="cd-stroke-bar" class="cd-stroke-bar" style="display:none;">
                         <span id="cdStrokeEditingName" class="cd-stroke-editing">EDITING</span>
                         <span id="cdStrokeCount" class="cd-stroke-count">0 of 0 strokes</span>
@@ -1225,6 +1214,18 @@
                   <div><div class="cd-stat-label">TRAVEL</div><div id="cdTravel" class="cd-stat-val">0mm</div></div>
                 </div>
               </div>
+
+              <!-- Layers: MAIN is the whole file and cannot be edited
+                   or deleted; the rest are named bunches of strokes. -->
+              <div id="cd-layer-panel" class="cd-layer-panel">
+                <div class="cd-layer-head">
+                  <span>LAYERS</span>
+                  <span class="cd-layer-hint">tick to plot</span>
+                </div>
+                <div id="cd-layer-list" class="cd-layer-list"></div>
+                <button id="cdLayerAdd" class="cd-layer-add" type="button">+ NEW LAYER</button>
+              </div>
+
 
               <!-- Bottom bloc: Run controls + Edit Start + Scrub panel
                    (always visible, pinned bottom; scrub panel expands below
