@@ -2613,6 +2613,92 @@
   cursor: default;
 }
 
+/* Pump mode lives on the edit bar because it belongs to the layer being
+   plotted, not to the app. Filled when it is doing something, so a layer that
+   will prime the pen looks different from one that will not. */
+#cdStrokePumpBtn.is-on {
+  border-color: var(--pc-primary, #FF6A00);
+  color: var(--pc-primary, #FF6A00);
+  background: rgba(255, 106, 0, 0.08);
+}
+
+.cd-pump-menu {
+  position: absolute;
+  z-index: 130;
+  width: 230px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  gap: 2px;
+  border: 1px solid var(--cd-border);
+  border-radius: 6px;
+  background: var(--pc-surface, #fff);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  font-family: var(--cd-mono);
+}
+
+.cd-pump-menu button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cd-pump-menu button:hover { background: rgba(0, 0, 0, 0.05); }
+
+.cd-pump-menu button.is-on {
+  background: rgba(255, 106, 0, 0.1);
+  box-shadow: inset 2px 0 0 var(--pc-primary, #FF6A00);
+}
+
+.cd-pump-label {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--cd-text);
+}
+
+.cd-pump-menu button.is-on .cd-pump-label { color: var(--pc-primary, #FF6A00); }
+
+.cd-pump-hint {
+  font-size: 9px;
+  line-height: 1.4;
+  color: var(--cd-text-muted);
+  white-space: normal;
+}
+
+/* The interval only means anything in per-distance mode, so it is only there. */
+.cd-pump-dist { display: none; }
+
+.cd-pump-menu.has-dist .cd-pump-dist {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  padding: 7px 9px;
+  border-top: 1px solid var(--cd-border);
+  font-size: 9px;
+  color: var(--cd-text-muted);
+}
+
+.cd-pump-dist input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid var(--cd-border);
+  border-radius: 3px;
+  background: var(--pc-surface, #fff);
+  font-family: var(--cd-mono);
+  font-size: 10px;
+  color: var(--cd-text);
+  text-align: right;
+}
+
 .cd-stroke-bar .cd-stroke-primary {
   border-color: var(--pc-primary, #FF6A00);
   background: var(--pc-primary, #FF6A00);

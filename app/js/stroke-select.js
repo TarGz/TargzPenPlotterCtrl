@@ -552,6 +552,9 @@ function strokeSetMode(mode) {
     strokeSetTool(strokeTool);
     strokeSetPaintMode(strokePaintMode);
     strokeUpdateStats();
+    strokeRefreshPumpBtn();
+  } else {
+    $('#cd-pump-menu').remove();
   }
   strokeRepaint();
 }
@@ -1246,25 +1249,34 @@ function strokeBuildGcode(keep) {
 
   // This generator does not filter the source file, it rebuilds one from the
   // stroke geometry — so anything the source did between strokes, a priming dip
-  // included, exists here only if it is emitted deliberately. Settings > PUMP.
-  var pump = (typeof cdReadPump === 'function') ? cdReadPump() : { enabled: false };
-  if (pump.enabled) {
-    g += '; Pump: Z' + pump.z + ' every ' + pump.every + ' stroke(s)' +
-      (pump.dwell ? ', ' + pump.dwell + 'ms dwell' : '') + '\n';
+  // included, exists here only if it is emitted deliberately. The mode comes
+  // from the PUMP control on the edit bar.
+  var pump = (typeof cdReadPump === 'function') ? cdReadPump() : { mode: 'off' };
+  var drawnSincePump = 0;
+  if (pump.mode !== 'off') {
+    g += '; Pump: Z' + pump.z + ' — ' +
+      (pump.mode === 'line' ? 'every stroke' : 'every ' + pump.distance + 'mm drawn') + '\n';
   }
 
   keep.forEach(function (idx, n) {
     var s = strokes[idx];
     var p0 = lp[s.a];
+    // Per line: every stroke. Per distance: whenever the drawn length since the
+    // last dip has run past the interval. Either way the first stroke pumps —
+    // a layer starts with whatever the pen was left holding.
+    var doPump = (pump.mode === 'line') ||
+      (pump.mode === 'dist' && (n === 0 || drawnSincePump >= pump.distance));
+
     g += '\n; --- stroke ' + idx + ' (lines ' + (s.lineA + 1) + '-' + (s.lineB + 1) + ') ---\n';
     g += 'G0 Z' + pens.up + '\n';
     g += 'G0 X' + (p0.x).toFixed(3) + ' Y' + (p0.y).toFixed(3) + '\n';
-    // Dip below drawing height at the stroke's own start, then rise to draw.
-    // n is the index within the kept set, so the first stroke always pumps.
-    if (pump.enabled && (n % pump.every) === 0) {
+    // Dip below drawing height at the stroke's own start, then rise to draw, so
+    // nothing is dragged across the sheet on the way to the dip.
+    if (doPump) {
       g += 'G0 Z' + pump.z + '\n';
-      if (pump.dwell > 0) g += 'G4 P' + (pump.dwell / 1000).toFixed(3) + '\n';
+      drawnSincePump = 0;
     }
+    drawnSincePump += s.len;
     g += 'G1 Z' + pens.down + (feed ? ' F' + feed : '') + '\n';
     for (var i = s.a + 1; i <= s.b; i++) {
       var p = lp[i];
@@ -1274,6 +1286,72 @@ function strokeBuildGcode(keep) {
 
   g += '\n; --- done ---\nG0 Z' + pens.up + '\n';
   return g;
+}
+
+// ── Pump mode ──────────────────────────────────────────────────────────────
+//
+// Lives on the edit bar, not in Settings: it belongs to the layer you are about
+// to plot, and the depth it dips to is the PUMP height the jog panel already
+// owns. Three modes only — anything finer is the generator's job upstream.
+
+var STROKE_PUMP_MODES = [
+  { id: 'off',  label: 'Pen up / down',    hint: 'No priming dip. What a pen that feeds itself wants.' },
+  { id: 'line', label: 'Pump per line',    hint: 'A dip at the start of every stroke.' },
+  { id: 'dist', label: 'Pump per distance', hint: 'A dip once the drawn length passes the interval.' }
+];
+
+function strokePumpLabel() {
+  var p = (typeof cdReadPump === 'function') ? cdReadPump() : { mode: 'off' };
+  if (p.mode === 'line') return 'PUMP: PER LINE';
+  if (p.mode === 'dist') return 'PUMP: ' + p.distance + 'MM';
+  return 'PUMP: OFF';
+}
+
+function strokeRefreshPumpBtn() {
+  $('#cdStrokePumpBtn').text(strokePumpLabel())
+    .toggleClass('is-on', (typeof cdReadPump === 'function') && cdReadPump().mode !== 'off');
+}
+
+function strokePumpMenu(anchor) {
+  $('#cd-pump-menu').remove();
+  var cur = cdReadPump();
+  var html = '<div id="cd-pump-menu" class="cd-pump-menu">';
+  STROKE_PUMP_MODES.forEach(function (m) {
+    html += '<button type="button" data-mode="' + m.id + '"' + (cur.mode === m.id ? ' class="is-on"' : '') + '>' +
+      '<span class="cd-pump-label">' + m.label + '</span>' +
+      '<span class="cd-pump-hint">' + m.hint + '</span></button>';
+  });
+  html += '<div class="cd-pump-dist"><label for="cdPumpDistance">every</label>' +
+    '<input id="cdPumpDistance" type="number" min="1" step="10" value="' + cur.distance + '">' +
+    '<span>mm drawn</span></div>';
+  html += '</div>';
+
+  var $pop = $(html).appendTo('#tab-three');
+  var pr = anchor.getBoundingClientRect();
+  var wr = document.getElementById('tab-three').getBoundingClientRect();
+  $pop.css({ bottom: (wr.bottom - pr.top + 6) + 'px', left: (pr.left - wr.left) + 'px' });
+  $pop.toggleClass('has-dist', cur.mode === 'dist');
+
+  $pop.on('click', 'button', function (e) {
+    e.stopPropagation();
+    localStorage.setItem('pumpMode', $(this).data('mode'));
+    $pop.find('button').removeClass('is-on');
+    $(this).addClass('is-on');
+    $pop.toggleClass('has-dist', $(this).data('mode') === 'dist');
+    strokeRefreshPumpBtn();
+  });
+  $pop.on('click', '.cd-pump-dist', function (e) { e.stopPropagation(); });
+  $pop.on('change input', '#cdPumpDistance', function () {
+    var v = parseFloat($(this).val());
+    if (isNaN(v) || v <= 0) return;
+    localStorage.setItem('pumpDistance', v);
+    strokeRefreshPumpBtn();
+  });
+  $pop.on('keydown', 'input', function (e) { e.stopPropagation(); if (e.which === 13) $pop.remove(); });
+
+  setTimeout(function () {
+    $(document).one('click', function () { $('#cd-pump-menu').remove(); });
+  }, 0);
 }
 
 // ── Wiring ─────────────────────────────────────────────────────────────────
@@ -1335,6 +1413,10 @@ $(document).ready(function () {
   $('#cdStrokeInvert').on('click', function () { strokeInvert(); strokeCommitToLayer(); });
   $('#cdLayerAdd').on('click', strokeLayerNew);
   $('#cdStrokeDone').on('click', strokeLayerEditDone);
+  $('#cdStrokePumpBtn').on('click', function (e) {
+    e.stopPropagation();
+    strokePumpMenu(this);
+  });
 
   // Layer list: the row arms the layer for plotting, EDIT opens it, ⋯ renames / deletes.
   $('#cd-layer-list').on('click', '.cd-layer-row', function (e) {

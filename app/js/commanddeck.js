@@ -409,20 +409,18 @@ $(document).ready(function () {
     return { up: up, down: down, pump: pump };
   }
 
-  // Pump settings for the layer G-code generator. Off by default, and off must
-  // mean the output is byte-identical to before — plenty of pens just drop to
-  // drawing height and adding a dip to those would drag ink across the sheet.
+  // Pump mode for the layer G-code generator. The depth is the PUMP height the
+  // jog panel already owns — this only decides whether, and how often, a layer
+  // plot dips to it. 'off' means pen up/down only, which is what a pen that
+  // needs no priming wants and what the generator did before.
   window.cdReadPump = function () {
-    var z     = parseFloat(localStorage.getItem('penPumpZ'));
-    var every = parseInt(localStorage.getItem('pumpEvery'), 10);
-    var dwell = parseFloat(localStorage.getItem('pumpDwell'));
+    var z = parseFloat(localStorage.getItem('penPumpZ'));
+    var d = parseFloat(localStorage.getItem('pumpDistance'));
+    var mode = localStorage.getItem('pumpMode');
     if (isNaN(z)) z = -2;
-    if (isNaN(every) || every < 1) every = 1;
-    if (isNaN(dwell) || dwell < 0) dwell = 0;
-    return {
-      enabled: localStorage.getItem('pumpEnabled') === 'true',
-      z: z, every: every, dwell: dwell
-    };
+    if (isNaN(d) || d <= 0) d = 300;
+    if (mode !== 'line' && mode !== 'dist') mode = 'off';
+    return { mode: mode, z: z, distance: d };
   };
   window.cdRefreshPenHints = function () {
     var p = cdReadPenHeights();

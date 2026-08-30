@@ -3,6 +3,16 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-08-30',
+      version: '1.25.0',
+      changes: [
+        'Pump control moves from Settings to the edit bar, and 1.24.0\'s Settings > PUMP section is removed. It was the wrong place twice over: the pump parameters already live upstream in the generator, and the choice belongs to the layer you are about to plot rather than to the app. The depth is the PUMP height the jog panel already owns; this only decides whether, and how often, a layer plot dips to it.',
+        'A PUMP button on the edit bar opens a three-option submenu — Pen up / down (no dip), Pump per line (a dip at the start of every stroke), Pump per distance (a dip once the drawn length passes an interval, editable in the menu and only shown for that mode). The button reads the mode back as PUMP: OFF / PER LINE / 300MM and fills orange when it will do something, so a layer that primes the pen does not look like one that does not.',
+        'Verified on a six-stroke file of 200mm strokes: off emits no dip at all, per line emits six, and per distance at 300mm emits three — the first stroke, then each time the accumulated drawn length runs past the interval. A layer always pumps on its first stroke, since it starts with whatever the pen was left holding.',
+        'Still open: the 3D preview does not draw the pump moves. They are generated at plot time and belong to no stroke, so the layer preview has no geometry for them.'
+      ]
+    },
+    {
+      date: '2026-08-30',
       version: '1.24.0',
       changes: [
         'New Settings > PUMP section, and layer plots can prime the pen again. strokeBuildGcode() does not filter the source file, it rebuilds one from the stroke geometry — G0/G1 with X/Y/Z/F and nothing else — so every M-code and every Z that is not the stored pen-up or pen-down height was dropped. A pump is a Z-only dip, which the stroke model discards by design (it has no XY length), so plotting a layer silently produced a file with no priming at all and the pen ran dry.',
