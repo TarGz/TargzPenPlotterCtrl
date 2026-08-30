@@ -3,6 +3,16 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-08-30',
+      version: '1.27.4',
+      changes: [
+        'Fix — ROOT CAUSE of the layer plotting the whole file. The play/pause keyboard shortcut streamed editor.getValue() straight through socket.emit(runJob), so it never called runJobFile() and never consulted the armed layer. With a layer ticked it plotted all 1,180 strokes while the panel correctly showed 187, and 1.27.3\'s refusal never fired because the function containing it was never reached. The shortcut now calls runJobFile(), which is the single place that decides what gets streamed.',
+        'This is why it could never be reproduced from the START button: pressing START always worked. The bug only appears when the job is started from the keyboard.',
+        'Still a raw emitter: runGcodeSection() in toolchange.js streams a slice of the editor directly. It is only reachable on a file containing M6 tool changes, which a pen plot does not have, so it is left alone rather than changed untested.',
+        'Noted while tracing, NOT changed: CHECK SIZE (jog.js) jogs to the toolpath bounding box with no check that the box fits the machine envelope. On a file larger than the travel it drives into the limits. Flagged as a candidate for the X/Y crash; it moves the machine, so it is not being touched without a decision.'
+      ]
+    },
+    {
+      date: '2026-08-30',
       version: '1.27.3',
       changes: [
         'Fix — an armed layer that produced no G-code silently fell through and streamed the WHOLE FILE: 1,180 strokes drawn when 187 were asked for, with nothing on screen saying so. runJobFile() now refuses. If a layer is ticked it is the only thing allowed to stream; when the generator returns nothing the job does not start, a red toast appears, and the CONSOLE tab says why.',

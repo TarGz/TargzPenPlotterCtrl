@@ -330,11 +330,12 @@ function bindKeys() {
       $(document).bind('keydown', keyboardShortcuts.playpause, function(e) {
         e.preventDefault();
         if (laststatus.comms.connectionStatus == 1 || laststatus.comms.connectionStatus == 2) {
-          socket.emit('runJob', {
-            data: editor.getValue(),
-            isJob: true,
-            fileName: ""
-          });
+          // Go through runJobFile(), NOT a raw emit of the editor contents.
+          // This shortcut used to stream editor.getValue() directly, which
+          // bypassed the armed-layer check entirely: with a layer ticked it
+          // still plotted the whole file, and the START button's logic — and
+          // its refusal path — never ran because runJobFile() was never called.
+          runJobFile();
         } else if (laststatus.comms.connectionStatus == 3) {
           socket.emit('pause', true);
         } else if (laststatus.comms.connectionStatus == 4) {
