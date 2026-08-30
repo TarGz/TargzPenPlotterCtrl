@@ -3,6 +3,16 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-08-30',
+      version: '1.27.1',
+      changes: [
+        'Fix — the jog panel PUMP button moves to the pump height and STOPS, as it always did. 1.27.0 turned it into a compress / hold / release cycle that returned to pen-up on its own. That was never asked for, it was inferred from a request that only concerned the submenu, and it damaged a machine. PEN UP and PEN DOWN are likewise back to a bare G90 plus the move.',
+        'Fix — the G21 that 1.26.1 added to the pen buttons and the park move is reverted with it. It was defensible in isolation but it was another unrequested change to commands that drive the machine by hand, and it was shipped untested.',
+        'The dwell stays where it was actually asked for: the PUMP submenu on the edit bar, default 500ms, emitted as G4 in the layer G-code only. Nothing on the jog path dwells, returns, or changes units.',
+        'Rule this establishes: the jog panel is hand control of a physical machine. No behaviour is added to it on inference — only on an explicit request.'
+      ]
+    },
+    {
+      date: '2026-08-30',
       version: '1.27.0',
       changes: [
         'The PUMP submenu gets a dwell, default 500ms, emitted as G4 after the dip. Without it the dip reversed on the very next line and the pen never physically settled at depth, so a layer plot primed less than the same file plotted whole even with identical Z numbers — a plausible source of the roughly one millimetre difference between plotting and jogging.',

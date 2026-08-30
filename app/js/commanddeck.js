@@ -463,10 +463,7 @@ $(document).ready(function () {
   window.cdRunParkMove = function () {
     var p = cdReadParking();
     if (!p.enabled || typeof sendGcode !== 'function') return;
-    // G21 for the same reason as the pen buttons: these are stored in mm and
-    // the command has to say so, or a file that left the controller in G20
-    // turns the park move into inches.
-    sendGcode('G21 G90\nG0 Z' + p.travelZ + '\nG0 X' + p.x + ' Y' + p.y + '\nG0 Z' + p.z);
+    sendGcode('G90\nG0 Z' + p.travelZ + '\nG0 X' + p.x + ' Y' + p.y + '\nG0 Z' + p.z);
     if (typeof printLogModern === 'function') {
       printLogModern('', 'PARK', 'Parked at X' + p.x + ' Y' + p.y + ' Z' + p.z, 'fg-darkGreen');
     }
@@ -638,29 +635,23 @@ $(document).ready(function () {
     zpenOpen($(this));
   });
   cdRefreshPenHints();
-  // 'G21 G90', not bare 'G90'. These heights are stored in mm, but the command
-  // never said so — it was read in whatever unit mode the controller happened
-  // to be left in, and a job whose file starts G20 leaves it in inches. Pressing
-  // PUMP then means -35 INCHES. A plot always states its units (the generated
-  // header carries the file's G20/G21), so plot and jog could disagree about
-  // what the same number means.
-  function cdPenMove(z) {
-    sendGcode('G21 G90');
-    sendGcode('G0 Z' + z);
-  }
-  $('#cdPenUpBtn').on('click',   function () { cdPenMove(cdReadPenHeights().up); });
-  $('#cdPenDownBtn').on('click', function () { cdPenMove(cdReadPenHeights().down); });
-  // A full prime cycle, not a move to depth: compress, hold, release. A dwell
-  // is the whole point of a pump — the pen needs time at depth — and leaving it
-  // compressed afterwards is not a state to sit in. Same dwell the layer
-  // generator uses, so the button and the plot prime identically.
+  // These three move to a height and STOP. Nothing else. No dwell, no return
+  // move, no unit word beyond what was always here — the jog panel drives a
+  // physical machine by hand and is not a place to add behaviour.
+  $('#cdPenUpBtn').on('click', function () {
+    var p = cdReadPenHeights();
+    sendGcode('G90');
+    sendGcode('G0 Z' + p.up);
+  });
+  $('#cdPenDownBtn').on('click', function () {
+    var p = cdReadPenHeights();
+    sendGcode('G90');
+    sendGcode('G0 Z' + p.down);
+  });
   $('#cdPumpBtn').on('click', function () {
     var p = cdReadPenHeights();
-    var w = cdReadPump().dwell;
-    sendGcode('G21 G90');
+    sendGcode('G90');
     sendGcode('G0 Z' + p.pump);
-    if (w > 0) sendGcode('G4 P' + (w / 1000).toFixed(3));
-    sendGcode('G0 Z' + p.up);
   });
 
   // ─── Utility buttons ─────────────────────────────────────────────────────
