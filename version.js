@@ -3,6 +3,16 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-08-30',
+      version: '1.24.0',
+      changes: [
+        'New Settings > PUMP section, and layer plots can prime the pen again. strokeBuildGcode() does not filter the source file, it rebuilds one from the stroke geometry — G0/G1 with X/Y/Z/F and nothing else — so every M-code and every Z that is not the stored pen-up or pen-down height was dropped. A pump is a Z-only dip, which the stroke model discards by design (it has no XY length), so plotting a layer silently produced a file with no priming at all and the pen ran dry.',
+        'Made a setting rather than inferred from the file, because not every plot pumps — plenty of pens just drop to drawing height, and adding a dip to those would drag ink across the sheet. Off by default: with the toggle off the generated G-code is byte-identical to before, verified by stripping the pump lines from the on output and diffing against the off output.',
+        'Controls: pump depth Z (below pen-down), pump every N strokes (1 is every stroke, and the first stroke of a layer always pumps), and a dwell in ms emitted as G4. The dip happens at the stroke\'s own start position — travel, dip, wait, rise to pen-down, draw — so no ink is dragged getting there.',
+        'Known gap: the 3D preview still does not draw the pump moves. They are generated at plot time and are not part of any stroke, so there is no geometry for the layer preview to show. The plot itself is correct; the picture is missing the verticals.'
+      ]
+    },
+    {
+      date: '2026-08-30',
       version: '1.23.0',
       changes: [
         'The ALARM banner moves from the top of the right column to the top of the left, above JOG CONTROL. Clearing an alarm ends in jogging off whatever tripped it, so the UNLOCK button now sits with the controls you reach for immediately after rather than a column away above JOB.',

@@ -1244,12 +1244,27 @@ function strokeBuildGcode(keep) {
 
   var feed = (state && state.lastCuttingFeed) ? state.lastCuttingFeed : null;
 
-  keep.forEach(function (idx) {
+  // This generator does not filter the source file, it rebuilds one from the
+  // stroke geometry — so anything the source did between strokes, a priming dip
+  // included, exists here only if it is emitted deliberately. Settings > PUMP.
+  var pump = (typeof cdReadPump === 'function') ? cdReadPump() : { enabled: false };
+  if (pump.enabled) {
+    g += '; Pump: Z' + pump.z + ' every ' + pump.every + ' stroke(s)' +
+      (pump.dwell ? ', ' + pump.dwell + 'ms dwell' : '') + '\n';
+  }
+
+  keep.forEach(function (idx, n) {
     var s = strokes[idx];
     var p0 = lp[s.a];
     g += '\n; --- stroke ' + idx + ' (lines ' + (s.lineA + 1) + '-' + (s.lineB + 1) + ') ---\n';
     g += 'G0 Z' + pens.up + '\n';
     g += 'G0 X' + (p0.x).toFixed(3) + ' Y' + (p0.y).toFixed(3) + '\n';
+    // Dip below drawing height at the stroke's own start, then rise to draw.
+    // n is the index within the kept set, so the first stroke always pumps.
+    if (pump.enabled && (n % pump.every) === 0) {
+      g += 'G0 Z' + pump.z + '\n';
+      if (pump.dwell > 0) g += 'G4 P' + (pump.dwell / 1000).toFixed(3) + '\n';
+    }
     g += 'G1 Z' + pens.down + (feed ? ' F' + feed : '') + '\n';
     for (var i = s.a + 1; i <= s.b; i++) {
       var p = lp[i];

@@ -408,6 +408,22 @@ $(document).ready(function () {
     if (isNaN(pump)) pump = -2;
     return { up: up, down: down, pump: pump };
   }
+
+  // Pump settings for the layer G-code generator. Off by default, and off must
+  // mean the output is byte-identical to before — plenty of pens just drop to
+  // drawing height and adding a dip to those would drag ink across the sheet.
+  window.cdReadPump = function () {
+    var z     = parseFloat(localStorage.getItem('penPumpZ'));
+    var every = parseInt(localStorage.getItem('pumpEvery'), 10);
+    var dwell = parseFloat(localStorage.getItem('pumpDwell'));
+    if (isNaN(z)) z = -2;
+    if (isNaN(every) || every < 1) every = 1;
+    if (isNaN(dwell) || dwell < 0) dwell = 0;
+    return {
+      enabled: localStorage.getItem('pumpEnabled') === 'true',
+      z: z, every: every, dwell: dwell
+    };
+  };
   window.cdRefreshPenHints = function () {
     var p = cdReadPenHeights();
     var fmt = function (v) { return v.toFixed(1); };

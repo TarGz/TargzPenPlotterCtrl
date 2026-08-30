@@ -29,6 +29,7 @@
       .append(buildCalibrationSection())
       .append(buildToolsSection())
       .append(buildParkingSection())
+      .append(buildPumpSection())
       .append(buildNotifySection())
       .append(buildShortcutsSection())
       .append(buildDiagnosticsSection())
@@ -44,11 +45,13 @@
     bindTools();
     bindCalibration();
     bindParking();
+    bindPump();
     bindNotify();
     renderAbout();
     refreshDiagnostics();
     refreshParameters();
     refreshParking();
+    refreshPump();
     refreshNotify();
 
     // Default panel
@@ -66,6 +69,7 @@
     if (target === 'parameters') refreshParameters();
     if (target === 'diagnostics') refreshDiagnostics();
     if (target === 'parking') refreshParking();
+    if (target === 'pump') refreshPump();
     if (target === 'notify') refreshNotify();
     if (target === 'about') renderAbout();
   };
@@ -417,6 +421,74 @@
   }
   // Let the RUN-panel toggle re-sync this section when it flips the shared flag.
   window.cdRefreshParkingSettings = refreshParking;
+
+  // ═══ Section: Pump ════════════════════════════════════════════════════════
+  // Not every plot uses one — some pens just drop to drawing height — so this is
+  // off by default and adds nothing to the G-code until it is turned on.
+  function buildPumpSection() {
+    function row(key, name, step, unit) {
+      return '<div class="cd-set-row">' +
+        '<span class="cd-set-row-key">' + key.replace('pump', '').replace('pen', '') + '</span>' +
+        '<span class="cd-set-row-name">' + name + '</span>' +
+        '<span class="cd-set-row-val"><input type="number" data-pump="' + key + '" step="' + step + '" /></span>' +
+        '<span class="cd-set-row-unit">' + unit + '</span>' +
+      '</div>';
+    }
+    var html = '<section class="cd-set-section" data-section="pump">' +
+      '<div class="cd-set-header">' +
+        '<div class="cd-set-header-main">' +
+          '<div class="cd-set-header-title">PUMP</div>' +
+          '<div class="cd-set-header-hint">A priming dip below drawing height before a stroke starts, for pens that need feeding. It is applied when a LAYER is plotted: the generated G-code travels to the stroke, dips to the pump depth, waits, then rises to pen-down and draws. Leave it off for pens that just drop to drawing height.</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="cd-set-cards">' +
+        '<div class="cd-set-card cd-set-card-span">' +
+          '<div class="cd-set-card-header">PUMP WHEN PLOTTING A LAYER</div>' +
+          '<div class="cd-set-card-body">' +
+            '<label class="cd-set-toggle-row" data-pump-toggle>' +
+              '<button type="button" class="cd-set-toggle"></button>' +
+              '<div class="cd-set-toggle-text">' +
+                '<div class="cd-set-toggle-label">Pump before strokes</div>' +
+                '<div class="cd-set-toggle-hint">Off adds nothing to the G-code — the plot is exactly what it is today</div>' +
+              '</div>' +
+            '</label>' +
+            row('penPumpZ', 'Pump depth (Z) — below pen-down', '0.1', 'mm') +
+            row('pumpEvery', 'Pump every N strokes — 1 is every stroke', '1', 'strokes') +
+            row('pumpDwell', 'Wait at pump depth', '10', 'ms') +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</section>';
+    return $(html);
+  }
+
+  function bindPump() {
+    $('#cd-settings-layout').on('click', '[data-pump-toggle]', function (e) {
+      e.preventDefault();
+      var cur = localStorage.getItem('pumpEnabled') === 'true';
+      localStorage.setItem('pumpEnabled', (!cur).toString());
+      refreshPump();
+    });
+    $('#cd-settings-layout').on('change', 'input[data-pump]', function () {
+      var v = parseFloat($(this).val());
+      if (isNaN(v)) return;
+      var key = $(this).data('pump');
+      if (key === 'pumpEvery') v = Math.max(1, Math.round(v));
+      if (key === 'pumpDwell') v = Math.max(0, v);
+      localStorage.setItem(key, v);
+      refreshPump();
+    });
+  }
+
+  function refreshPump() {
+    $('[data-pump-toggle] .cd-set-toggle').toggleClass('on', localStorage.getItem('pumpEnabled') === 'true');
+    var p = (typeof cdReadPump === 'function') ? cdReadPump() : { z: -2, every: 1, dwell: 0 };
+    var vals = { penPumpZ: p.z, pumpEvery: p.every, pumpDwell: p.dwell };
+    Object.keys(vals).forEach(function (k) {
+      var $i = $('input[data-pump="' + k + '"]');
+      if (!$i.is(':focus')) $i.val(vals[k]);
+    });
+  }
 
   // ═══ Section: Notifications ═══════════════════════════════════════════════
   // Phone push via ntfy (see cdSendNtfy in commanddeck.js). A topic is a shared
