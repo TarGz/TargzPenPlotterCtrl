@@ -831,7 +831,31 @@ function strokeHasFile() {
 // strokes, selection and open layer mean nothing against it. Called by the
 // parser for BOTH outcomes — a fresh file and a cleared editor — since only
 // one of those reaches the success branch.
+var strokeLastFingerprint = null;
+
 window.strokeOnGcodeChanged = function () {
+  var fp = strokeFingerprint();
+
+  // Same file, parsed again — "Update 3D View", a re-render, a reload of the
+  // same G-code. The geometry is equivalent, so the layers and whatever is
+  // armed still mean exactly what they meant a moment ago. Only the stroke
+  // index needs rebuilding, because it addresses the NEW object.
+  //
+  // This guard is the point of the function. Without it every re-parse ran
+  // strokeLayersLoad(), whose "if the armed id is missing, unarm" line then
+  // silently cleared strokePlotLayerId — and an unarmed layer makes the view
+  // paint the whole file and the plot stream the whole file. Before this hook
+  // existed strokeLayersLoad() ran once at startup, so arming survived.
+  if (fp === strokeLastFingerprint) {
+    strokes = [];
+    strokeGrid = null;
+    strokeEnsureBuilt();
+    strokeRefreshLayerUI();
+    strokeRepaint();
+    return;
+  }
+  strokeLastFingerprint = fp;
+
   if (strokeMode === 'edit') strokeSetMode('view');
   strokeEditingLayerId = null;
   strokes = [];

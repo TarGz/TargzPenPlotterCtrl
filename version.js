@@ -3,6 +3,15 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-08-30',
+      version: '1.28.1',
+      changes: [
+        'Fix — REGRESSION introduced in 1.22.2. strokeOnGcodeChanged() was called on every parse and ran strokeLayersLoad(), which contains "if the armed layer id is missing, unarm". Re-parsing the same file — Update 3D View, a re-render, reloading the same G-code — therefore wiped the stroke index and could silently clear strokePlotLayerId. An unarmed layer takes the early exit in strokePaintViewMode(), so the 3D view painted the whole drawing, and runJobFile() streamed the whole file for the same reason. Before 1.22.2 strokeLayersLoad() ran once on a startup timer, so arming survived — which is why this worked before today.',
+        'The hook now compares the file fingerprint first. Same file: rebuild only the stroke index, which addresses the new geometry, and keep the layers, the selection and whatever is armed. Different file, or an unload: the full reset, which is what the hook was added for.',
+        'Verified: arm a layer, re-parse the same file, and the layer is still armed, still resolves, and still generates its own G-code (70 lines) instead of falling through to the whole file.'
+      ]
+    },
+    {
+      date: '2026-08-30',
       version: '1.28.0',
       changes: [
         'PLOT TARGET is now the single statement of what START will draw, and the layer list is what it opens. The two used to sit on screen together saying the same thing in different words — a permanently docked LAYERS panel and a separate readout below it — which left it unclear which one was the control.',
