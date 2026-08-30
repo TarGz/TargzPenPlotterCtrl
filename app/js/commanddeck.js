@@ -1015,6 +1015,13 @@ $(document).ready(function () {
       $('#cd-scrub-panel').hide();
       var baseName = filename.replace(/\.[^/.]+$/, '');
       $('#cdJobName').text(baseName);
+      // LINES describes the FILE that is loaded. It used to be written from the
+      // streaming queue, so once a job ended and the queue collapsed the card
+      // read "1 LINES / 100.0%" with nothing running.
+      var fileLines = (typeof editor !== 'undefined' && editor.session) ? editor.session.getLength() : 0;
+      $('#cdJobMeta').text(fileLines ? fileLines.toLocaleString() + ' LINES' : '—');
+      $('#cdProgressPct').html('0.0<span class="cd-progress-pct-unit">%</span>');
+      $('#cdProgressBar').css('width', '0%');
     } else {
       $('#cdFileName').hide();
       $('#cdFileUnload').hide();
@@ -1029,11 +1036,11 @@ $(document).ready(function () {
 
   // ─── Job progress ─────────────────────────────────────────────────────────
   window.cdUpdateJobProgress = function (pct, currentLine, totalLines, elapsed, remaining, travelMm) {
+    // A collapsed queue reports total = 1, which rendered as a finished job.
+    // Progress is only meaningful while there is a real queue behind it.
+    if (!totalLines || totalLines < 2) return;
     $('#cdProgressPct').html(pct.toFixed(1) + '<span class="cd-progress-pct-unit">%</span>');
     $('#cdProgressBar').css('width', Math.min(100, pct) + '%');
-    if (totalLines) {
-      $('#cdJobMeta').text(totalLines.toLocaleString() + ' LINES');
-    }
     if (currentLine !== undefined) {
       $('#cdLine').text(currentLine.toLocaleString());
     }

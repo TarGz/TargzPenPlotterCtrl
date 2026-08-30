@@ -3,6 +3,15 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-08-30',
+      version: '1.27.5',
+      changes: [
+        'Fix — the JOB card reported "1 LINES" and "100.0%" with nothing running. LINES was written from the backend queueCount event, which carries the STREAMING QUEUE length, not the loaded file: once a job ended the queue collapsed to [0, 1], giving done/total = 1/1 and a card claiming a finished job that had never started. The card conflated the file you loaded with the job that ran.',
+        'LINES now describes the loaded file and is set when the file loads, from the editor line count. Progress only writes the percentage, current line and timings, and ignores any queueCount with fewer than two entries, which is the collapsed-queue artifact. Loading a file also resets the bar to 0.',
+        'Verified: file loaded shows its own line count at 0%, a job at 42.5% shows the file count with 42.5%, and the collapsed-queue update is discarded rather than rendered as complete.'
+      ]
+    },
+    {
+      date: '2026-08-30',
       version: '1.27.4',
       changes: [
         'Fix — ROOT CAUSE of the layer plotting the whole file. The play/pause keyboard shortcut streamed editor.getValue() straight through socket.emit(runJob), so it never called runJobFile() and never consulted the armed layer. With a layer ticked it plotted all 1,180 strokes while the panel correctly showed 187, and 1.27.3\'s refusal never fired because the function containing it was never reached. The shortcut now calls runJobFile(), which is the single place that decides what gets streamed.',
