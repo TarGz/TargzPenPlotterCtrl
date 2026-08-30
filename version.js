@@ -3,6 +3,14 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-08-30',
+      version: '1.27.2',
+      changes: [
+        'Version bump only — no code change of any kind. 1.27.1 relabelled and rebuilt so the build and install cycle can be checked against a version visible in the title bar.',
+        'Known and NOT addressed here: the X/Y crash into the limits has no identified cause, and the pen height defaults remain -15 / -29 / -35, so a profile that has never stored penUpZ / penPumpZ will command G0 Z-15 (downward) from PEN UP. Set the three heights before using those buttons on a fresh install.'
+      ]
+    },
+    {
+      date: '2026-08-30',
       version: '1.27.1',
       changes: [
         'Fix — the jog panel PUMP button moves to the pump height and STOPS, as it always did. 1.27.0 turned it into a compress / hold / release cycle that returned to pen-up on its own. That was never asked for, it was inferred from a request that only concerned the submenu, and it damaged a machine. PEN UP and PEN DOWN are likewise back to a bare G90 plus the move.',
