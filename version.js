@@ -2,6 +2,17 @@ module.exports = {
   version: require('./package.json').version,
   CHANGELOG: [
     {
+      date: '2026-08-30',
+      version: '1.22.0',
+      changes: [
+        'The LAYERS panel now says what it is for. Nothing on screen named the stroke editor, so a month later the pencil on a layer row was just an icon you no longer recognised — and it was the only door in besides + NEW LAYER. The panel head carries a caption ("Tick what gets plotted. EDIT changes which strokes a layer holds."), and the pencil is a worded EDIT button on every layer row, filled orange and reading EDITING while that layer is open.',
+        'Rename and delete moved behind a single ⋯ overflow (same anchored-popover pattern as the colour picker). Three unlabelled 26px buttons in a 10px mono row was icon soup, and consolidating them is what freed the width for the EDIT label. Colour keeps its own direct affordance on the swatch, now 12px rather than 8px.',
+        'Layer rows are a two-line grid: the name spans the first line, the count and the buttons share the second. On one line at 260px the name got about 80px, which ellipsised anything longer than "Outline". MAIN reads "whole file · 2,887 strokes" and lost its swatch border — an outlined box next to the tick just read as a second, unticked checkbox.',
+        'With no layers saved the list shows what a layer is for rather than only MAIN, and + NEW LAYER goes solid, since with nothing to edit it is the only way into the editor.',
+        'Edit mode announces itself. The selection bar was a hairline strip stretched edge to edge with a metre of empty white in the middle — scenery on a wide screen, and genuinely missed. It shrink-wraps and centres at the bottom, the layer name is a filled orange chip, type went 10px to 11px and DONE reads ✓ DONE. A 2px orange frame now rings the 3D view for as long as edit mode is on, the way a recording indicator does: noticing you are in a mode that changes what the machine will draw should not depend on reading small type at the bottom of the window.'
+      ]
+    },
+    {
       date: '2026-07-29',
       version: '1.21.1',
       changes: [
