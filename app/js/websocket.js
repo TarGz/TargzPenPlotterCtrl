@@ -429,6 +429,11 @@ function initSocket() {
 
     if (laststatus) {
       if (laststatus.comms.connectionStatus == 3) {
+        // Mark this as a machine-driven scroll. restart-from-point watches the
+        // cursor and cannot otherwise tell it from the operator clicking a
+        // line — and its handler is debounced, so the last move of a job fires
+        // after the job has ended, past any is-it-running check.
+        window.restartIgnoreCursorUntil = Date.now() + 2000;
         editor.gotoLine(data[1] - data[0]);
       }
       if (typeof object !== 'undefined' && done > 0) {

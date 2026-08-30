@@ -3,6 +3,15 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-08-30',
+      version: '1.28.3',
+      changes: [
+        'Fix — the false progress at the end of a plot: strokes painted as if already drawn. dimToolpathBefore() blacks out everything before a point — its own comment calls that region "already drawn on the sheet" — and it is reached from the cursor handler that watches the ACE editor. 1.28.2 made that handler ignore cursor moves while the controller is running, but the handler is debounced by 150ms, so the LAST editor.gotoLine() of a job fired after the job had finished and the controller was already idle, sailing past the check. It then dimmed the toolpath from the final streamed line number, which during a layer plot does not address that geometry at all.',
+        'The scroll is now marked at source: websocket.js sets restartIgnoreCursorUntil before each gotoLine(), and the handler ignores any cursor change inside that window. A status check alone could never be enough against a debounce that outlives the job.',
+        'Verified: a machine-driven scroll followed immediately by the job going idle leaves zero blacked-out vertices and arms no restart state, while a genuine click on a line still dims and arms exactly as before.'
+      ]
+    },
+    {
+      date: '2026-08-30',
       version: '1.28.2',
       changes: [
         'Fix — DURING a plot the 3D view showed a pen position invented from the source file instead of the machine. websocket.js calls editor.gotoLine() on every queue tick to follow the job. That moves the ACE cursor, which fires restart-from-point\'s changeCursor handler, and that handler cannot tell an automatic scroll from the operator clicking a restart point: it moved the cone to the SOURCE file\'s point for that line number and set restartSelectionActive. The position was wrong to begin with — during a layer plot the streamed line numbers do not address the source geometry at all — and the flag then made websocket.js stop updating the cone from the real machine position, so the marker froze there for the rest of the run. It also dimmed the toolpath as a restart preview, which is part of why the display stopped matching the plot.',

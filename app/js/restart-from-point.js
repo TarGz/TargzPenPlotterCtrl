@@ -269,6 +269,14 @@ function onEditorCursorChange() {
   if (typeof laststatus !== 'undefined' && laststatus && laststatus.comms &&
       laststatus.comms.connectionStatus >= 3) return;
 
+  // The status check above is not enough on its own: this handler is debounced
+  // by 150ms, so the LAST gotoLine() of a job fires after the job has finished
+  // and the controller is already idle. That is what painted a false progress
+  // at the end of every plot — dimToolpathBefore() blacks out everything before
+  // the point, which reads as "already drawn", from a line number that during a
+  // layer plot does not even address this geometry.
+  if (window.restartIgnoreCursorUntil && Date.now() < window.restartIgnoreCursorUntil) return;
+
   var row = editor.getCursorPosition().row;
   var pointIdx = object.userData.gcodeLineToPointIndex[row];
 
