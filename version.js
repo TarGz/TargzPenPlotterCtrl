@@ -3,6 +3,14 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-08-30',
+      version: '1.23.0',
+      changes: [
+        'The ALARM banner moves from the top of the right column to the top of the left, above JOG CONTROL. Clearing an alarm ends in jogging off whatever tripped it, so the UNLOCK button now sits with the controls you reach for immediately after rather than a column away above JOB.',
+        'It is sticky: the left column scrolls, and a warning you have to scroll to find is not a warning.'
+      ]
+    },
+    {
+      date: '2026-08-30',
       version: '1.22.5',
       changes: [
         'UNTESTED — NOT YET VERIFIED ON THE MACHINE. This version and the four fixes before it (1.22.1 to 1.22.4) have only been exercised against a static copy of the UI in a browser; none has run against a real plot. Treat the whole 1.22.x range as needing a hardware pass before it is trusted for an unattended job.',

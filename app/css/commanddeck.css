@@ -399,10 +399,14 @@
 }
 
 /* ─── Alarm banner ─────────────────────────────────────────────────────────── */
-/* Lives at the top of #cd-right as an inline panel: toggling shifts only the
-   JOB info below it (which is flex:1 + scrollable) — the RUN controls stay
-   pinned to the bottom, and the jog / position strip / topbar are unaffected. */
+/* Sits at the top of #cd-left, above JOG: clearing an alarm ends in jogging off
+   whatever tripped it, so the unlock belongs next to the controls you reach for
+   straight after. #cd-left scrolls, so it is sticky — an alarm you have to
+   scroll to find is not a warning. */
 #cd-alarm-banner {
+  position: sticky;
+  top: 0;
+  z-index: 5;
   flex-shrink: 0;
   background: #FEE2E2;
   border-bottom: 1px solid var(--cd-bad);
