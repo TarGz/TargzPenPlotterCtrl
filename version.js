@@ -3,6 +3,17 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-08-30',
+      version: '1.26.0',
+      changes: [
+        'The 3D preview draws the pump dips. They exist nowhere in the source file — they are synthesised at plot time — so the preview had no geometry for them and a layer that would prime the pen looked identical to one that would not. Each dip is now drawn as a vertical from pen-down to the pump depth plus a small cross at its XY, as a child of the toolpath object so it inherits the scale and dies with it on a re-parse.',
+        'The decision moved into one strokePumpPlan(): the generator emits from it and the preview draws from it, so the picture cannot drift from the file that gets streamed. Verified they agree — per-distance at 300mm on 200mm strokes gives 3 marks and 3 G0 dips.',
+        'The cross is sized at 1% of the drawing span rather than a fixed millimetre count, because 1.5mm is sub-pixel on a 280mm sheet at fit-zoom, and a vertical alone is a dot in the top view — which is the view you are in by default.',
+        'Marks are magenta. STROKE_LAYER_COLORS contains an amber, and the first attempt used one, so the marks disappeared into whichever layer happened to be drawn in that colour.',
+        'They show in view mode for the armed layer and in edit mode for the open one, which is the answer to "what will START actually do". MAIN gets none: it streams the source file untouched and never goes through the generator.'
+      ]
+    },
+    {
+      date: '2026-08-30',
       version: '1.25.0',
       changes: [
         'Pump control moves from Settings to the edit bar, and 1.24.0\'s Settings > PUMP section is removed. It was the wrong place twice over: the pump parameters already live upstream in the generator, and the choice belongs to the layer you are about to plot rather than to the app. The depth is the PUMP height the jog panel already owns; this only decides whether, and how often, a layer plot dips to it.',

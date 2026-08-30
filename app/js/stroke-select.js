@@ -841,6 +841,7 @@ window.strokeOnGcodeChanged = function () {
   strokeUndoStack = [];
   strokeHover = -1;
   strokeRangeClearMarks();
+  strokePumpMarksClear();
   strokeLayersLoad();
 };
 
@@ -1157,6 +1158,7 @@ function strokeRepaint() {
   if (!object || !object.geometry || !object.geometry.attributes.color) return;
   if (strokeMode === 'edit') strokeApplyColors();
   else strokePaintViewMode();
+  strokePumpMarksBuild();
 }
 
 // View mode: isolate the plot layer if one is armed (everything else painted
@@ -1252,7 +1254,7 @@ function strokeBuildGcode(keep) {
   // included, exists here only if it is emitted deliberately. The mode comes
   // from the PUMP control on the edit bar.
   var pump = (typeof cdReadPump === 'function') ? cdReadPump() : { mode: 'off' };
-  var drawnSincePump = 0;
+  var pumped = strokePumpPlan(keep);
   if (pump.mode !== 'off') {
     g += '; Pump: Z' + pump.z + ' — ' +
       (pump.mode === 'line' ? 'every stroke' : 'every ' + pump.distance + 'mm drawn') + '\n';
@@ -1261,22 +1263,12 @@ function strokeBuildGcode(keep) {
   keep.forEach(function (idx, n) {
     var s = strokes[idx];
     var p0 = lp[s.a];
-    // Per line: every stroke. Per distance: whenever the drawn length since the
-    // last dip has run past the interval. Either way the first stroke pumps —
-    // a layer starts with whatever the pen was left holding.
-    var doPump = (pump.mode === 'line') ||
-      (pump.mode === 'dist' && (n === 0 || drawnSincePump >= pump.distance));
-
     g += '\n; --- stroke ' + idx + ' (lines ' + (s.lineA + 1) + '-' + (s.lineB + 1) + ') ---\n';
     g += 'G0 Z' + pens.up + '\n';
     g += 'G0 X' + (p0.x).toFixed(3) + ' Y' + (p0.y).toFixed(3) + '\n';
     // Dip below drawing height at the stroke's own start, then rise to draw, so
     // nothing is dragged across the sheet on the way to the dip.
-    if (doPump) {
-      g += 'G0 Z' + pump.z + '\n';
-      drawnSincePump = 0;
-    }
-    drawnSincePump += s.len;
+    if (pumped[n]) g += 'G0 Z' + pump.z + '\n';
     g += 'G1 Z' + pens.down + (feed ? ' F' + feed : '') + '\n';
     for (var i = s.a + 1; i <= s.b; i++) {
       var p = lp[i];
@@ -1299,6 +1291,94 @@ var STROKE_PUMP_MODES = [
   { id: 'line', label: 'Pump per line',    hint: 'A dip at the start of every stroke.' },
   { id: 'dist', label: 'Pump per distance', hint: 'A dip once the drawn length passes the interval.' }
 ];
+
+// Which of `keep` get a dip. ONE owner for the rule: the generator emits from
+// it and the preview draws from it, so the picture cannot drift from the plot.
+// Per line is every stroke; per distance fires once the drawn length since the
+// last dip runs past the interval. Either way the first stroke pumps — a layer
+// starts with whatever the pen was left holding.
+function strokePumpPlan(keep) {
+  var pump = (typeof cdReadPump === 'function') ? cdReadPump() : { mode: 'off' };
+  var out = [];
+  var acc = 0;
+  keep.forEach(function (idx, n) {
+    var on = (pump.mode === 'line') ||
+      (pump.mode === 'dist' && (n === 0 || acc >= pump.distance));
+    out.push(on);
+    acc = on ? 0 : acc;
+    acc += strokes[idx] ? strokes[idx].len : 0;
+  });
+  return out;
+}
+
+// The dips do not exist in the file — they are synthesised at plot time — so
+// the preview has to draw its own geometry for them. A child of `object` rather
+// than a scene member, so it inherits the toolpath's scale and dies with it on
+// a re-parse, and so the colour-buffer painters never touch it.
+var strokePumpObj = null;
+
+function strokePumpMarksClear() {
+  if (strokePumpObj) {
+    if (strokePumpObj.parent) strokePumpObj.parent.remove(strokePumpObj);
+    if (strokePumpObj.geometry) strokePumpObj.geometry.dispose();
+    strokePumpObj = null;
+  }
+}
+
+// The set a plot would actually use: the layer being edited, else the one armed
+// for plotting. MAIN streams the source file untouched, so it gets no marks.
+function strokePumpPreviewSet() {
+  var l = strokeLayerById(strokeEditingLayerId) || strokeLayerById(strokePlotLayerId);
+  if (!l) return null;
+  var src = (strokeMode === 'edit' && strokeEditingLayerId === l.id) ? strokeSelection : l.sel;
+  return Object.keys(src).map(Number).sort(function (a, b) { return a - b; });
+}
+
+function strokePumpMarksBuild() {
+  strokePumpMarksClear();
+  if (typeof THREE === 'undefined' || !object || !object.userData || !strokes.length) return;
+  var pump = (typeof cdReadPump === 'function') ? cdReadPump() : { mode: 'off' };
+  if (pump.mode === 'off') return;
+
+  var keep = strokePumpPreviewSet();
+  if (!keep || !keep.length) return;
+
+  var plan = strokePumpPlan(keep);
+  var lp = object.userData.linePoints;
+  var pens = (typeof cdReadPenHeights === 'function')
+    ? cdReadPenHeights() : { down: 0 };
+  // Pen heights are mm; the toolpath is in file units and the object carries the
+  // inch scale, so bring the two Z values into the same space as lp.
+  var zs = object.userData.inch ? (1 / 25.4) : 1;
+
+  // A vertical alone is a dot in the top view, which is the view you are in by
+  // default — so each dip is a vertical PLUS a small cross at its XY, and the
+  // mark reads from any angle.
+  // Sized off the drawing, not a fixed mm: 1.5mm is sub-pixel on a 280mm sheet
+  // at fit-zoom. World-space, so it grows as you zoom in, like the toolpath.
+  var bb = object.userData.bbbox2;
+  var span = bb ? Math.max(bb.max.x - bb.min.x, bb.max.y - bb.min.y) : 100;
+  var arm = Math.max(1 * zs, span * 0.01);
+  var pos = [];
+  keep.forEach(function (idx, n) {
+    if (!plan[n]) return;
+    var p0 = lp[strokes[idx].a];
+    if (!p0) return;
+    var zd = pens.down * zs;
+    pos.push(p0.x, p0.y, zd, p0.x, p0.y, pump.z * zs);
+    pos.push(p0.x - arm, p0.y, zd, p0.x + arm, p0.y, zd);
+    pos.push(p0.x, p0.y - arm, zd, p0.x, p0.y + arm, zd);
+  });
+  if (!pos.length) return;
+
+  var geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  // Magenta deliberately: STROKE_LAYER_COLORS contains an amber, so an amber
+  // mark vanished into whichever layer happened to be drawn in it.
+  strokePumpObj = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0xFF2D95 }));
+  strokePumpObj.name = 'pumpmarks';
+  object.add(strokePumpObj);
+}
 
 function strokePumpLabel() {
   var p = (typeof cdReadPump === 'function') ? cdReadPump() : { mode: 'off' };
@@ -1339,6 +1419,7 @@ function strokePumpMenu(anchor) {
     $(this).addClass('is-on');
     $pop.toggleClass('has-dist', $(this).data('mode') === 'dist');
     strokeRefreshPumpBtn();
+    strokeRepaint();
   });
   $pop.on('click', '.cd-pump-dist', function (e) { e.stopPropagation(); });
   $pop.on('change input', '#cdPumpDistance', function () {
@@ -1346,6 +1427,7 @@ function strokePumpMenu(anchor) {
     if (isNaN(v) || v <= 0) return;
     localStorage.setItem('pumpDistance', v);
     strokeRefreshPumpBtn();
+    strokeRepaint();
   });
   $pop.on('keydown', 'input', function (e) { e.stopPropagation(); if (e.which === 13) $pop.remove(); });
 
