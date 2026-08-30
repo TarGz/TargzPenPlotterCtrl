@@ -1224,9 +1224,14 @@ window.strokePartGcodeIfArmed = function () {
 function strokeBuildGcode(keep) {
   var lp = object.userData.linePoints;
 
-  var pens = { up: parseFloat(localStorage.getItem('penUpZ')), down: parseFloat(localStorage.getItem('penDownZ')) };
-  if (isNaN(pens.up)) pens.up = 5;
-  if (isNaN(pens.down)) pens.down = 0;
+  // One reader for the pen heights, shared with the jog buttons. This used to
+  // re-read localStorage with its OWN fallbacks of 5 and 0, so on a profile that
+  // had never set them the jog panel moved to -15 / -29 while a layer plot went
+  // to 5 / 0 — two copies of a default is exactly how plotting and jogging end
+  // up meaning different heights.
+  var pens = (typeof cdReadPenHeights === 'function')
+    ? cdReadPenHeights()
+    : { up: -15, down: -29, pump: -35 };
 
   var firstLine = strokes[keep[0]].lineA + 1;
   var state = (typeof scanModalState === 'function') ? scanModalState(firstLine) : null;
@@ -1257,7 +1262,8 @@ function strokeBuildGcode(keep) {
   var pumped = strokePumpPlan(keep);
   if (pump.mode !== 'off') {
     g += '; Pump: Z' + pump.z + ' — ' +
-      (pump.mode === 'line' ? 'every stroke' : 'every ' + pump.distance + 'mm drawn') + '\n';
+      (pump.mode === 'line' ? 'every stroke' : 'every ' + pump.distance + 'mm drawn') +
+      ', ' + pump.dwell + 'ms dwell\n';
   }
 
   keep.forEach(function (idx, n) {
@@ -1268,7 +1274,12 @@ function strokeBuildGcode(keep) {
     g += 'G0 X' + (p0.x).toFixed(3) + ' Y' + (p0.y).toFixed(3) + '\n';
     // Dip below drawing height at the stroke's own start, then rise to draw, so
     // nothing is dragged across the sheet on the way to the dip.
-    if (pumped[n]) g += 'G0 Z' + pump.z + '\n';
+    if (pumped[n]) {
+      g += 'G0 Z' + pump.z + '\n';
+      // Without this the dip reverses on the very next line and the pen never
+      // physically settles at depth — the plot primes less than the button does.
+      if (pump.dwell > 0) g += 'G4 P' + (pump.dwell / 1000).toFixed(3) + '\n';
+    }
     g += 'G1 Z' + pens.down + (feed ? ' F' + feed : '') + '\n';
     for (var i = s.a + 1; i <= s.b; i++) {
       var p = lp[i];
@@ -1404,6 +1415,11 @@ function strokePumpMenu(anchor) {
   html += '<div class="cd-pump-dist"><label for="cdPumpDistance">every</label>' +
     '<input id="cdPumpDistance" type="number" min="1" step="10" value="' + cur.distance + '">' +
     '<span>mm drawn</span></div>';
+  // Always shown: it is also the dwell the jog panel's PUMP button uses, so it
+  // is not specific to a mode.
+  html += '<div class="cd-pump-row"><label for="cdPumpDwell">hold</label>' +
+    '<input id="cdPumpDwell" type="number" min="0" step="50" value="' + cur.dwell + '">' +
+    '<span>ms at depth</span></div>';
   html += '</div>';
 
   var $pop = $(html).appendTo('#tab-three');
@@ -1421,7 +1437,12 @@ function strokePumpMenu(anchor) {
     strokeRefreshPumpBtn();
     strokeRepaint();
   });
-  $pop.on('click', '.cd-pump-dist', function (e) { e.stopPropagation(); });
+  $pop.on('click', '.cd-pump-dist, .cd-pump-row', function (e) { e.stopPropagation(); });
+  $pop.on('change input', '#cdPumpDwell', function () {
+    var v = parseFloat($(this).val());
+    if (isNaN(v) || v < 0) return;
+    localStorage.setItem('pumpDwell', v);
+  });
   $pop.on('change input', '#cdPumpDistance', function () {
     var v = parseFloat($(this).val());
     if (isNaN(v) || v <= 0) return;

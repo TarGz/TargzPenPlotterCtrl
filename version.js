@@ -3,6 +3,16 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-08-30',
+      version: '1.27.0',
+      changes: [
+        'The PUMP submenu gets a dwell, default 500ms, emitted as G4 after the dip. Without it the dip reversed on the very next line and the pen never physically settled at depth, so a layer plot primed less than the same file plotted whole even with identical Z numbers — a plausible source of the roughly one millimetre difference between plotting and jogging.',
+        'The jog panel PUMP button is now a full prime cycle rather than a move to depth: compress, hold for the same dwell, release to pen-up. A dwell is the whole point of a pump, and leaving the pen compressed at -35 is not a state to sit in. The button and the generator read the same dwell, so they prime identically.',
+        'Fix — strokeBuildGcode() kept its OWN copy of the pen-height fallbacks (5 and 0) instead of using the jog panel\'s reader. On a profile that had never set them the jog buttons moved to -15 / -29 while a layer plot went to 5 / 0: two copies of a default is exactly how plotting and jogging come to mean different heights. cdReadPenHeights() is now exported and is the single reader for both.',
+        'Caveat on the millimetre: this has not been reproduced on hardware, and the DRO question is still open — if the readout shows the same Z during a plot as after pressing PUMP, the remaining difference is mechanical (dwell, compliance, backlash) and the dwell above is the lever. If the readout differs, an offset is being applied and cancelled inside the job and the file\'s header and footer will name it.'
+      ]
+    },
+    {
+      date: '2026-08-30',
       version: '1.26.1',
       changes: [
         'Fix — PEN UP / PEN DOWN / PUMP and the park move sent G90 and a Z number without ever saying what unit the number was in. The heights are stored in mm, but a bare G0 Z-35 is read in whatever unit mode the controller was last left in, and a job whose file begins G20 leaves it in inches — so the same stored number meant -35mm during a plot (the generated header always states the file\'s G20/G21) and -35 INCHES from the jog panel afterwards. All four now send G21 G90.',

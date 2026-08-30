@@ -399,7 +399,7 @@ $(document).ready(function () {
   // ─── Pen Up / Pen Down (Z-axis based) ────────────────────────────────────
   // Not the servo/M3 "tool" logic from OpenBuilds — on a pen plotter the "pen"
   // is lifted and lowered by commanding Z to a stored absolute height.
-  function cdReadPenHeights() {
+  window.cdReadPenHeights = function () {
     var up   = parseFloat(localStorage.getItem('penUpZ'));
     var down = parseFloat(localStorage.getItem('penDownZ'));
     var pump = parseFloat(localStorage.getItem('penPumpZ'));
@@ -411,7 +411,7 @@ $(document).ready(function () {
     if (isNaN(down)) down = -29;
     if (isNaN(pump)) pump = -35;
     return { up: up, down: down, pump: pump };
-  }
+  };
 
   // Pump mode for the layer G-code generator. The depth is the PUMP height the
   // jog panel already owns — this only decides whether, and how often, a layer
@@ -420,11 +420,13 @@ $(document).ready(function () {
   window.cdReadPump = function () {
     var z = parseFloat(localStorage.getItem('penPumpZ'));
     var d = parseFloat(localStorage.getItem('pumpDistance'));
+    var w = parseFloat(localStorage.getItem('pumpDwell'));
     var mode = localStorage.getItem('pumpMode');
-    if (isNaN(z)) z = -2;
+    if (isNaN(z)) z = -35;
     if (isNaN(d) || d <= 0) d = 300;
+    if (isNaN(w) || w < 0) w = 500;
     if (mode !== 'line' && mode !== 'dist') mode = 'off';
-    return { mode: mode, z: z, distance: d };
+    return { mode: mode, z: z, distance: d, dwell: w };
   };
   window.cdRefreshPenHints = function () {
     var p = cdReadPenHeights();
@@ -648,7 +650,18 @@ $(document).ready(function () {
   }
   $('#cdPenUpBtn').on('click',   function () { cdPenMove(cdReadPenHeights().up); });
   $('#cdPenDownBtn').on('click', function () { cdPenMove(cdReadPenHeights().down); });
-  $('#cdPumpBtn').on('click',    function () { cdPenMove(cdReadPenHeights().pump); });
+  // A full prime cycle, not a move to depth: compress, hold, release. A dwell
+  // is the whole point of a pump — the pen needs time at depth — and leaving it
+  // compressed afterwards is not a state to sit in. Same dwell the layer
+  // generator uses, so the button and the plot prime identically.
+  $('#cdPumpBtn').on('click', function () {
+    var p = cdReadPenHeights();
+    var w = cdReadPump().dwell;
+    sendGcode('G21 G90');
+    sendGcode('G0 Z' + p.pump);
+    if (w > 0) sendGcode('G4 P' + (w / 1000).toFixed(3));
+    sendGcode('G0 Z' + p.up);
+  });
 
   // ─── Utility buttons ─────────────────────────────────────────────────────
   $('#cdChkSizeBtn').on('click', function () {

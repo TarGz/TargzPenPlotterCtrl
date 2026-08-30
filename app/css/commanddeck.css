@@ -2675,6 +2675,7 @@
 /* The interval only means anything in per-distance mode, so it is only there. */
 .cd-pump-dist { display: none; }
 
+.cd-pump-row,
 .cd-pump-menu.has-dist .cd-pump-dist {
   display: flex;
   align-items: center;
@@ -2686,6 +2687,7 @@
   color: var(--cd-text-muted);
 }
 
+.cd-pump-row input,
 .cd-pump-dist input {
   flex: 1;
   min-width: 0;
