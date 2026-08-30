@@ -13,12 +13,56 @@
 
 ## Issue-driven workflow
 
-All user-visible bugs and feature requests live as GitHub issues in `TarGz/TargzPenPlotterCtrl`. Use the `gh` CLI:
+- When user report a but using the BUG: bug description , append it with a short rewriting to the BUGS.md file in the current repo
+- When USER ask for a feature  FEATURE: feature request description , append it with a short rewriting to the FEATURES-REQUEST.md file in the current repo
+- Only commit when I ask
+- USER is the one who tests — anything VISUAL is his to judge; Claude says what to test and what to check
+- Any claude.md file, versioning ,etc Append AFTER the user validate the new behavoir of the app
+- Never mention Claude Code in commits
+- Never add Co-Authored-By lines to commits
+- **Don't start the dev server, open a browser, or run browser tests — I do that.** Verify
+  what can be verified headlessly (`node --check`, node harnesses for Rapier and opentype.js,
+  both of which run fine outside a browser), then hand over with a concrete test list.
 
-```bash
-gh issue list --repo TarGz/TargzPenPlotterCtrl --state open
-gh issue view <N>   --repo TarGz/TargzPenPlotterCtrl
-```
+
+## BUG.md file template
+# Bugs
+
+This file tracks known bugs in the repo. Keep it up to date so any agent working on the code (Claude Code, etc.) knows the current state before making changes.
+
+## How to use this file
+
+- Add a new entry under **Open** when you find a bug.
+- Keep descriptions short but precise and short, very close from the USER prompt, One title on short descritpion 100 char MAX
+- Remove the entry once implemented — it's recorded in `version.js` and the commit, not here.
+
+---
+
+## Open
+
+### Short title of the bug
+100 char MAX
+
+
+
+# FEATURES-REQUEST.md template
+
+This file tracks feature requests in the repo. Keep it up to date so any agent working on the code (Claude Code, etc.) knows what's planned before making changes.
+
+## How to use this file
+
+- Add a new entry under **Open** when you think of a feature.
+- Remove the entry once implemented — it's recorded in `version.js` and the commit, not here.
+- Keep descriptions short but precise and short, very close from the USER prompt, One title on short descritpion 100 char MAX
+
+---
+
+## Open
+
+<!-- Duplicate the block above for each new request -->
+### Short title of the bug
+100 char MAX
+
 
 ### Rules
 
