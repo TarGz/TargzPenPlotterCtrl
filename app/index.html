@@ -167,7 +167,7 @@
                   </span>
                   <span class="caption">Unlock<br>Alarm</span>
                 </button>
-                <button class="ribbon-button" onclick="socket.emit('stop', { stop: false, jog: false, abort: true});">
+                <button class="ribbon-button" onclick="if (typeof cdMarkOperatorStop === 'function') cdMarkOperatorStop(); socket.emit('stop', { stop: false, jog: false, abort: true});">
                   <span class="icon">
                     <span class="fa-layers fa-fw">
                       <i class="fas fa-circle fg-red" data-fa-transform="grow-8"></i>
@@ -269,7 +269,7 @@
                   </span>
                   <span class="caption">Unlock<br>Alarm</span>
                 </button>
-                <button class="ribbon-button" onclick="socket.emit('stop', { stop: false, jog: false, abort: true});">
+                <button class="ribbon-button" onclick="if (typeof cdMarkOperatorStop === 'function') cdMarkOperatorStop(); socket.emit('stop', { stop: false, jog: false, abort: true});">
                   <span class="icon">
                     <span class="fa-layers fa-fw">
                       <i class="fas fa-circle fg-red" data-fa-transform="grow-8"></i>
@@ -304,7 +304,7 @@
                     </select>
 
                     <button class="button small success float-right" onclick="selectPort()" id="connectBtn" type="button" style="margin: 5px;" disabled>Connect</button>
-                    <button class="button small alert" style="display:none;" onclick="closePort()" id="disconnectBtn" type="button" style="margin: 5px;">Disconnect</button>
+                    <button class="button small alert" style="display:none;" onclick="if (typeof cdMarkOperatorStop === 'function') cdMarkOperatorStop(); closePort()" id="disconnectBtn" type="button" style="margin: 5px;">Disconnect</button>
                     <button class="button small secondary disabled" disabled style="display:none;" id="flashBtn" type="button" style="margin: 5px;">Flashing: please wait...</button>
                     <button class="button small outline success float-right" onclick="scanNetwork();" id="scanBtn" type="button" style="margin: 5px;">Scan Network</button>
 
@@ -405,7 +405,7 @@
                   </span>
                   <span class="caption">Pause<br>Job</span>
                 </button>
-                <button id="stopBtn" class="ribbon-button" onclick="socket.emit('stop', { stop: true, jog: false, abort: false});">
+                <button id="stopBtn" class="ribbon-button" onclick="if (typeof cdMarkOperatorStop === 'function') cdMarkOperatorStop(); socket.emit('stop', { stop: true, jog: false, abort: false});">
                   <span class="icon">
                     <i class="fas fa-stop"></i>
                   </span>
@@ -548,7 +548,7 @@
                   </span>
                   <span class="caption">Unlock<br>Alarm</span>
                 </button>
-                <button class="ribbon-button" onclick="socket.emit('stop', { stop: false, jog: false, abort: true});">
+                <button class="ribbon-button" onclick="if (typeof cdMarkOperatorStop === 'function') cdMarkOperatorStop(); socket.emit('stop', { stop: false, jog: false, abort: true});">
                   <span class="icon">
                     <span class="fa-layers fa-fw">
                       <i class="fas fa-circle fg-red" data-fa-transform="grow-8"></i>
@@ -623,7 +623,7 @@
                   </span>
                   <span class="caption">Unlock<br>Alarm</span>
                 </button>
-                <button class="ribbon-button" onclick="socket.emit('stop', { stop: false, jog: false, abort: true})">
+                <button class="ribbon-button" onclick="if (typeof cdMarkOperatorStop === 'function') cdMarkOperatorStop(); socket.emit('stop', { stop: false, jog: false, abort: true})">
                   <span class="icon">
                     <span class="fa-layers fa-fw">
                       <i class="fas fa-circle fg-red" data-fa-transform="grow-8"></i>

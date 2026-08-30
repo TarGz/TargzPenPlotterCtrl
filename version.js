@@ -3,6 +3,14 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-08-30',
+      version: '1.22.1',
+      changes: [
+        'Fix — pressing STOP, ABORT or DISCONNECT pushed a high-priority "Plot stopped" alert to your phone for the thing you had just done yourself. The backend decides `failed` purely from queue length (index.js), so a job the operator ended lands on exactly the same jobComplete as a dropped USB cable, and the renderer had no way to tell them apart. Every route to stopping now marks the action first — the CD Stop and Abort buttons, Disconnect, the e-stop keyboard shortcut and the legacy ribbon buttons — and cdNotifyPlotFailed() drops any failure push within 15s of one. Jog cancels are untouched: they emit stop with jog:true and are not job stops.',
+        'Pause already behaved: the alert only fires on disconnect or ALARM, and a paused job is neither.'
+      ]
+    },
+    {
+      date: '2026-08-30',
       version: '1.22.0',
       changes: [
         'The LAYERS panel now says what it is for. Nothing on screen named the stroke editor, so a month later the pencil on a layer row was just an icon you no longer recognised — and it was the only door in besides + NEW LAYER. The panel head carries a caption ("Tick what gets plotted. EDIT changes which strokes a layer holds."), and the pencil is a worded EDIT button on every layer row, filled orange and reading EDITING while that layer is open.',

@@ -133,6 +133,7 @@ $(document).ready(function () {
   // ─── Connect / Disconnect button ─────────────────────────────────────────
   $('#cdConnBtn').on('click', function () {
     if ($('#cdConnBtn').hasClass('cd-connected')) {
+      cdMarkOperatorStop();
       closePort();
       return;
     }
@@ -372,6 +373,7 @@ $(document).ready(function () {
 
   // ─── Stop ────────────────────────────────────────────────────────────────
   $('#cdStopBtn').on('click', function () {
+    cdMarkOperatorStop();
     socket.emit('stop', { stop: true, jog: false, abort: false });
   });
 
@@ -389,6 +391,7 @@ $(document).ready(function () {
   });
 
   $('#cdAbortConfirm').on('click', function () {
+    cdMarkOperatorStop();
     socket.emit('stop', { stop: false, jog: false, abort: true });
     $('#cd-abort-modal').fadeOut(120);
   });
@@ -494,9 +497,18 @@ $(document).ready(function () {
   // collapse anything inside a short window into a single push.
   var _lastFailNotifyAt = 0;
 
+  // STOP, ABORT and DISCONNECT end a job exactly the way a dropped USB cable
+  // does — the same jobComplete with failed:true, the same drop to
+  // disconnected — so the only thing that can tell them apart is knowing a
+  // button was pressed. Without this you get a high-priority "Plot stopped"
+  // push on your phone for the thing you just did yourself.
+  var _cdOperatorStopAt = 0;
+  window.cdMarkOperatorStop = function () { _cdOperatorStopAt = Date.now(); };
+
   window.cdNotifyPlotFailed = function (reason) {
     if (localStorage.getItem('ntfyEnabled') !== 'true') return;
     if (localStorage.getItem('ntfyFailEnabled') === 'false') return;
+    if (Date.now() - _cdOperatorStopAt < 15000) return;
 
     var now = Date.now();
     if (now - _lastFailNotifyAt < 20000) return;

@@ -318,6 +318,7 @@ function bindKeys() {
     if (keyboardShortcuts.estop.length) {
       $(document).bind('keydown', keyboardShortcuts.estop, function(e) {
         e.preventDefault();
+        if (typeof cdMarkOperatorStop === 'function') cdMarkOperatorStop();
         socket.emit('stop', {
           stop: false,
           jog: false,
