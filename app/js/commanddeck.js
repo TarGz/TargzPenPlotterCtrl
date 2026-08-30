@@ -403,9 +403,13 @@ $(document).ready(function () {
     var up   = parseFloat(localStorage.getItem('penUpZ'));
     var down = parseFloat(localStorage.getItem('penDownZ'));
     var pump = parseFloat(localStorage.getItem('penPumpZ'));
-    if (isNaN(up))   up   = 5;
-    if (isNaN(down)) down = 0;
-    if (isNaN(pump)) pump = -2;
+    // Real machine values, not placeholders. The old 5 / 0 / -2 were nothing
+    // like any pen actually used here, so a fresh profile — or a browser whose
+    // storage had been cleared — silently plotted at heights that read as
+    // plausible defaults while being completely wrong.
+    if (isNaN(up))   up   = -15;
+    if (isNaN(down)) down = -29;
+    if (isNaN(pump)) pump = -35;
     return { up: up, down: down, pump: pump };
   }
 
@@ -457,7 +461,10 @@ $(document).ready(function () {
   window.cdRunParkMove = function () {
     var p = cdReadParking();
     if (!p.enabled || typeof sendGcode !== 'function') return;
-    sendGcode('G90\nG0 Z' + p.travelZ + '\nG0 X' + p.x + ' Y' + p.y + '\nG0 Z' + p.z);
+    // G21 for the same reason as the pen buttons: these are stored in mm and
+    // the command has to say so, or a file that left the controller in G20
+    // turns the park move into inches.
+    sendGcode('G21 G90\nG0 Z' + p.travelZ + '\nG0 X' + p.x + ' Y' + p.y + '\nG0 Z' + p.z);
     if (typeof printLogModern === 'function') {
       printLogModern('', 'PARK', 'Parked at X' + p.x + ' Y' + p.y + ' Z' + p.z, 'fg-darkGreen');
     }
@@ -629,21 +636,19 @@ $(document).ready(function () {
     zpenOpen($(this));
   });
   cdRefreshPenHints();
-  $('#cdPenUpBtn').on('click', function () {
-    var p = cdReadPenHeights();
-    sendGcode('G90');
-    sendGcode('G0 Z' + p.up);
-  });
-  $('#cdPenDownBtn').on('click', function () {
-    var p = cdReadPenHeights();
-    sendGcode('G90');
-    sendGcode('G0 Z' + p.down);
-  });
-  $('#cdPumpBtn').on('click', function () {
-    var p = cdReadPenHeights();
-    sendGcode('G90');
-    sendGcode('G0 Z' + p.pump);
-  });
+  // 'G21 G90', not bare 'G90'. These heights are stored in mm, but the command
+  // never said so — it was read in whatever unit mode the controller happened
+  // to be left in, and a job whose file starts G20 leaves it in inches. Pressing
+  // PUMP then means -35 INCHES. A plot always states its units (the generated
+  // header carries the file's G20/G21), so plot and jog could disagree about
+  // what the same number means.
+  function cdPenMove(z) {
+    sendGcode('G21 G90');
+    sendGcode('G0 Z' + z);
+  }
+  $('#cdPenUpBtn').on('click',   function () { cdPenMove(cdReadPenHeights().up); });
+  $('#cdPenDownBtn').on('click', function () { cdPenMove(cdReadPenHeights().down); });
+  $('#cdPumpBtn').on('click',    function () { cdPenMove(cdReadPenHeights().pump); });
 
   // ─── Utility buttons ─────────────────────────────────────────────────────
   $('#cdChkSizeBtn').on('click', function () {

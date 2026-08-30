@@ -3,6 +3,15 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-08-30',
+      version: '1.26.1',
+      changes: [
+        'Fix — PEN UP / PEN DOWN / PUMP and the park move sent G90 and a Z number without ever saying what unit the number was in. The heights are stored in mm, but a bare G0 Z-35 is read in whatever unit mode the controller was last left in, and a job whose file begins G20 leaves it in inches — so the same stored number meant -35mm during a plot (the generated header always states the file\'s G20/G21) and -35 INCHES from the jog panel afterwards. All four now send G21 G90.',
+        'Fix — the pen height defaults were 5 / 0 / -2, which are not values any pen here uses. A fresh profile, or a browser whose storage had been cleared, showed plausible-looking numbers that were completely wrong. Defaults are now the real ones: PEN UP -15, PEN DOWN -29, PUMP -35.',
+        'Note for anyone chasing a height that will not stick: these live in localStorage, so they are per-origin and per-profile. Values set in a desktop browser at localhost:3000 are NOT the values the Electron window uses — it keeps its own storage — and a preview served on another port is different again.'
+      ]
+    },
+    {
+      date: '2026-08-30',
       version: '1.26.0',
       changes: [
         'The 3D preview draws the pump dips. They exist nowhere in the source file — they are synthesised at plot time — so the preview had no geometry for them and a layer that would prime the pen looked identical to one that would not. Each dip is now drawn as a vertical from pen-down to the pump depth plus a small cross at its XY, as a child of the toolpath object so it inherits the scale and dies with it on a re-parse.',
