@@ -1150,9 +1150,11 @@ function strokeRefreshLayerUI() {
   // filename ellipsised away the layer name — the half that actually changes.
   $('#cdPlotTargetName').text(pl ? pl.name : 'Whole file');
   $('#cdPlotTargetFile').text(file).toggle(!!file);
+  // Length leads — it is what tells you how long this will take and how much
+  // ink it wants; the stroke count is context for it.
   $('#cdPlotTargetMeta').text(pl
-    ? pl.count.toLocaleString() + ' of ' + (total || '?').toLocaleString() + ' strokes · ' + (pl.len / 1000).toFixed(2) + ' m'
-    : (total ? total.toLocaleString() + ' strokes' : ''));
+    ? (pl.len / 1000).toFixed(2) + ' m · ' + pl.count.toLocaleString() + ' of ' + (total || '?').toLocaleString() + ' strokes'
+    : (total ? total.toLocaleString() + ' strokes' : '—'));
   $('#cdStartBtn').text(pl ? '▶ START ' + pl.name.toUpperCase() : '▶ START');
 }
 

@@ -1714,6 +1714,38 @@
 
 /* The panel has to say what it is for: nothing else on screen names the stroke
    editor, so a month later the pencil is just an icon you no longer recognise. */
+/* Labelled rows: FILE / LAYER / LENGTH. This is the last thing read before
+   pressing START, so it states all three rather than running them together. */
+.cd-pt-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 3px;
+  font-family: var(--cd-mono);
+  font-size: 10px;
+}
+
+.cd-pt-key {
+  flex: 0 0 46px;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--cd-text-muted);
+}
+
+.cd-pt-val {
+  flex: 1;
+  min-width: 0;
+  color: var(--cd-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cd-pt-val.is-layer {
+  color: var(--pc-primary, #FF6A00);
+  font-size: 12px;
+}
+
 .cd-plot-target-edit,
 .cd-layer-done {
   padding: 3px 9px;
@@ -1728,12 +1760,22 @@
   transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
 
-.cd-plot-target-edit:hover,
 .cd-layer-done:hover {
   color: var(--pc-primary, #FF6A00);
   border-color: var(--pc-primary, #FF6A00);
   background: rgba(255, 106, 0, 0.08);
 }
+
+/* Orange: it is the way into the editor and should read as an action, not as
+   a label sitting next to the title. */
+.cd-plot-target-edit {
+  border-color: var(--pc-primary, #FF6A00);
+  background: var(--pc-primary, #FF6A00);
+  color: #fff;
+  padding: 4px 12px;
+}
+
+.cd-plot-target-edit:hover { color: #fff; filter: brightness(1.08); }
 
 .cd-layer-done {
   border-color: var(--pc-primary, #FF6A00);

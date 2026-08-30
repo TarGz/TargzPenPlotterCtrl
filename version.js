@@ -3,6 +3,15 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-08-30',
+      version: '1.29.0',
+      changes: [
+        'PLOT TARGET states FILE, LAYER and LENGTH as three labelled rows instead of running them together. It is the last thing read before pressing START, so each fact gets its own line and its own label: the file it came from, the layer that will be drawn, and how much line that is. LENGTH leads with metres — what tells you how long it will take and how much ink it wants — with the stroke count behind it as context.',
+        'The layer is set larger and in orange, since it is the one value that changes between runs.',
+        'CHANGE is now EDIT, filled orange. It is the way into the editor and should read as an action rather than a label sitting beside the title.'
+      ]
+    },
+    {
+      date: '2026-08-30',
       version: '1.28.3',
       changes: [
         'Fix — the false progress at the end of a plot: strokes painted as if already drawn. dimToolpathBefore() blacks out everything before a point — its own comment calls that region "already drawn on the sheet" — and it is reached from the cursor handler that watches the ACE editor. 1.28.2 made that handler ignore cursor moves while the controller is running, but the handler is debounced by 150ms, so the LAST editor.gotoLine() of a job fired after the job had finished and the controller was already idle, sailing past the check. It then dimmed the toolpath from the final streamed line number, which during a layer plot does not address that geometry at all.',
