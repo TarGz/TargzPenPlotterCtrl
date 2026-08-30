@@ -496,6 +496,7 @@ $(document).ready(function () {
   // (disconnect fires, then the stream fails, then jobComplete lands), so
   // collapse anything inside a short window into a single push.
   var _lastFailNotifyAt = 0;
+  var _lastFailWasSpecific = false;
 
   // STOP, ABORT and DISCONNECT end a job exactly the way a dropped USB cable
   // does — the same jobComplete with failed:true, the same drop to
@@ -505,14 +506,22 @@ $(document).ready(function () {
   var _cdOperatorStopAt = 0;
   window.cdMarkOperatorStop = function () { _cdOperatorStopAt = Date.now(); };
 
-  window.cdNotifyPlotFailed = function (reason) {
+  // `specific` marks a reason that says what actually happened (disconnect,
+  // ALARM) as opposed to the generic "did not finish" the jobComplete handler
+  // sends. The generic one usually lands first, so without the override below
+  // it was the only push you ever got — and it is the one that tells you least.
+  window.cdNotifyPlotFailed = function (reason, specific) {
     if (localStorage.getItem('ntfyEnabled') !== 'true') return;
     if (localStorage.getItem('ntfyFailEnabled') === 'false') return;
     if (Date.now() - _cdOperatorStopAt < 15000) return;
 
     var now = Date.now();
-    if (now - _lastFailNotifyAt < 20000) return;
+    if (now - _lastFailNotifyAt >= 20000) _lastFailWasSpecific = false;
+    // Keep the first push of a burst, but let a specific reason replace a
+    // generic one once inside the window.
+    if (now - _lastFailNotifyAt < 20000 && (!specific || _lastFailWasSpecific)) return;
     _lastFailNotifyAt = now;
+    if (specific) _lastFailWasSpecific = true;
 
     var name = (typeof loadedFileName !== 'undefined' && loadedFileName) ? loadedFileName : 'Plot';
     cdSendNtfy('Plot stopped', name + ' — ' + reason, null, {
@@ -732,12 +741,23 @@ $(document).ready(function () {
     // handled by the jobComplete handler instead.
     if (_cdJobWasLive && typeof cdNotifyPlotFailed === 'function') {
       if (!connected) {
-        cdNotifyPlotFailed('machine disconnected mid-plot');
+        cdNotifyPlotFailed('machine disconnected mid-plot', true);
       } else if (alarm) {
-        cdNotifyPlotFailed('controller went into ALARM');
+        cdNotifyPlotFailed('controller went into ALARM', true);
       }
     }
-    _cdJobWasLive = running || paused;
+
+    // Sticky, and cleared only on a genuine idle WHILE STILL CONNECTED.
+    // Recomputing it from the current tick meant any single status frame that
+    // was not exactly running or paused — one arrives between the queue
+    // draining and the disconnect registering — cleared the flag before the
+    // drop could be attributed to a live job, which is the one alert that
+    // matters. A disconnect never clears it; a finished job does.
+    if (running || paused) {
+      _cdJobWasLive = true;
+    } else if (connected && !alarm) {
+      _cdJobWasLive = false;
+    }
 
     $('#cdConnDot').toggleClass('cd-connected', connected);
     $('#cdConnLabel').toggleClass('cd-connected', connected);

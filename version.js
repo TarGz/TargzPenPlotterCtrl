@@ -3,6 +3,15 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-08-30',
+      version: '1.22.3',
+      changes: [
+        'Fix — the disconnect-mid-plot alert existed but was usually swallowed. One failure emits several signals inside the 20s collapse window, and the generic "plot did not finish" from jobComplete normally lands first, so the push you actually received was the one that said least about what happened. A reason is now marked specific (disconnect, ALARM) or generic, and a specific reason may replace a generic one once inside the window.',
+        'Fix — the "was a job live?" gate was recomputed from every status tick, so ALARM cleared it: a controller that alarmed and then dropped produced no disconnect alert at all. The flag is now sticky and clears only on a genuine idle while still connected, so neither ALARM nor the disconnect itself can clear it before the drop is attributed. Verified across tick sequences: 3,0 and 3,5,0 alert; 3,2,0 (clean finish then unplug) and 1,0 (never ran) stay silent.',
+        'Residual: a tick reporting plain connected-idle mid-job would still clear the gate. Treating that as "plotting" would fire false alerts after an ordinary connect, so it is left alone.'
+      ]
+    },
+    {
+      date: '2026-08-30',
       version: '1.22.2',
       changes: [
         'Fix — clearing the G-code or loading a new file left the LAYERS panel showing the previous file. The 3D mesh did leave the scene, but the parser assigns `object` from the worker result BEFORE the "did we get anything?" guard, so an emptied editor leaves a truthy husk carrying one linePoint. strokeHasFile() only tested that linePoints existed, and an empty array is truthy — so MAIN kept reporting the old stroke count, + NEW LAYER stayed enabled, and the strokes array still addressed geometry that was gone. It now requires more than one point.',
