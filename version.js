@@ -3,6 +3,15 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-08-30',
+      version: '1.28.2',
+      changes: [
+        'Fix — DURING a plot the 3D view showed a pen position invented from the source file instead of the machine. websocket.js calls editor.gotoLine() on every queue tick to follow the job. That moves the ACE cursor, which fires restart-from-point\'s changeCursor handler, and that handler cannot tell an automatic scroll from the operator clicking a restart point: it moved the cone to the SOURCE file\'s point for that line number and set restartSelectionActive. The position was wrong to begin with — during a layer plot the streamed line numbers do not address the source geometry at all — and the flag then made websocket.js stop updating the cone from the real machine position, so the marker froze there for the rest of the run. It also dimmed the toolpath as a restart preview, which is part of why the display stopped matching the plot.',
+        'onEditorCursorChange() now bails while the controller is running or paused. It already ignored cursor moves during a simulation and while the scrubber is open; a running job is the same situation — the cursor is not being moved by a person.',
+        'Verified: with the controller reporting running, a gotoLine() leaves the cone untouched at the machine position and sets no restart state; back at idle, clicking a line still arms restart-from-point as before.'
+      ]
+    },
+    {
+      date: '2026-08-30',
       version: '1.28.1',
       changes: [
         'Fix — REGRESSION introduced in 1.22.2. strokeOnGcodeChanged() was called on every parse and ran strokeLayersLoad(), which contains "if the armed layer id is missing, unarm". Re-parsing the same file — Update 3D View, a re-render, reloading the same G-code — therefore wiped the stroke index and could silently clear strokePlotLayerId. An unarmed layer takes the early exit in strokePaintViewMode(), so the 3D view painted the whole drawing, and runJobFile() streamed the whole file for the same reason. Before 1.22.2 strokeLayersLoad() ran once on a startup timer, so arming survived — which is why this worked before today.',

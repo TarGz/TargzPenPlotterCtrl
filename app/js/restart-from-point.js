@@ -260,6 +260,15 @@ function onEditorCursorChange() {
   // Don't update editor banner while scrubber is open
   if (scrubberOpen) return;
 
+  // A running job moves the cursor itself: websocket.js calls editor.gotoLine()
+  // on every queue tick. Treating that as the operator picking a restart point
+  // put the cone on the SOURCE file's point for that line — a position with no
+  // relation to where the machine actually is — and set restartSelectionActive,
+  // which then stops the real machine position from updating the cone at all.
+  // So during a plot the pen marker showed an invented position and froze there.
+  if (typeof laststatus !== 'undefined' && laststatus && laststatus.comms &&
+      laststatus.comms.connectionStatus >= 3) return;
+
   var row = editor.getCursorPosition().row;
   var pointIdx = object.userData.gcodeLineToPointIndex[row];
 
