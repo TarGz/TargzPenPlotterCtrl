@@ -3,6 +3,16 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-08-30',
+      version: '1.27.3',
+      changes: [
+        'Fix — an armed layer that produced no G-code silently fell through and streamed the WHOLE FILE: 1,180 strokes drawn when 187 were asked for, with nothing on screen saying so. runJobFile() now refuses. If a layer is ticked it is the only thing allowed to stream; when the generator returns nothing the job does not start, a red toast appears, and the CONSOLE tab says why.',
+        'The reason line reports which of the two null-returns fired — layerFound (the armed id is missing from strokeLayers) or strokes/hasToolpath (nothing was built from the toolpath) — and catches a thrown error from the generator, which previously aborted the click with no message at all.',
+        'A successful layer plot now logs the layer id and the line count it is streaming, so the CONSOLE says what actually went to the machine.',
+        'Root cause still unknown: this could not be reproduced here, where the same flow returns a valid layer file. This makes the failure loud and stops it wasting a sheet; it does not yet explain it.'
+      ]
+    },
+    {
+      date: '2026-08-30',
       version: '1.27.2',
       changes: [
         'Version bump only — no code change of any kind. 1.27.1 relabelled and rebuilt so the build and install cycle can be checked against a version visible in the title bar.',

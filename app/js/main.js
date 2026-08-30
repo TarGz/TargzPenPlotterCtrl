@@ -216,8 +216,35 @@ $(document).ready(function() {
 function runJobFile() {
   // Plot target is a saved part: stream the derived subset instead. The editor
   // keeps the full source file, so the part stays re-editable afterwards.
-  var partGcode = (typeof strokePartGcodeIfArmed === 'function') ? strokePartGcodeIfArmed() : null;
+  var partGcode = null;
+  var partErr = null;
+  if (typeof strokePartGcodeIfArmed === 'function') {
+    try { partGcode = strokePartGcodeIfArmed(); }
+    catch (e) { partErr = e && e.message ? e.message : String(e); }
+  }
+
+  // If a layer is armed, it is the ONLY thing that may stream. Falling through
+  // to the whole file drew 1,180 strokes when 187 were asked for — a wasted
+  // sheet, silently. Refuse and say why instead.
+  var armed = (typeof strokePlotLayerId !== 'undefined') ? strokePlotLayerId : null;
+  if (armed && !partGcode) {
+    var why = partErr
+      ? 'the generator threw: ' + partErr
+      : 'layerFound=' + ((typeof strokeLayerById === 'function') ? !!strokeLayerById(armed) : '?') +
+        ' strokes=' + ((typeof strokes !== 'undefined') ? strokes.length : '?') +
+        ' hasToolpath=' + !!(typeof object !== 'undefined' && object && object.userData && object.userData.linePoints);
+    printLog(`<span class="fg-red">[ LAYER ]</span><span class='fg-darkRed'> ` +
+      `Layer ` + armed + ` is armed but produced no G-code (` + why + `). ` +
+      `NOT plotting — the whole file was not streamed. Re-open the layer, or tick MAIN to plot everything.</span>`);
+    if (typeof Metro !== 'undefined' && Metro.toast) {
+      Metro.toast.create('Layer produced no G-code — nothing was sent. See CONSOLE.', null, 6000, 'bg-red');
+    }
+    return;
+  }
+
   if (partGcode) {
+    printLog(`<span class="fg-red">[ LAYER ]</span><span class='fg-darkGreen'> Streaming layer ` + armed +
+      ` — ` + partGcode.split('\n').length + ` lines</span>`);
     var partForm = new FormData();
     partForm.append("file", new File([new Blob([partGcode], { type: 'text/plain' })], 'upload.gcode'));
     var partXhr = new XMLHttpRequest();
