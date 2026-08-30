@@ -3,6 +3,15 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-08-30',
+      version: '1.22.5',
+      changes: [
+        'UNTESTED — NOT YET VERIFIED ON THE MACHINE. This version and the four fixes before it (1.22.1 to 1.22.4) have only been exercised against a static copy of the UI in a browser; none has run against a real plot. Treat the whole 1.22.x range as needing a hardware pass before it is trusted for an unattended job.',
+        'The new-layer button reads "+ NEW EDIT" rather than "+ NEW LAYER — PICK STROKES". The rest of the panel still says layer — the header, the caption, the empty state and the row buttons — so the vocabulary is deliberately inconsistent until the rename is decided one way or the other.',
+        'Still to verify on hardware: that STOP / ABORT / DISCONNECT send no phone push (1.22.1); that a cable pulled mid-plot does send one, including after an ALARM (1.22.3); and that a stopped plot returns to the plain toolpath preview (1.22.4). The LAYERS reset (1.22.2) was reproduced and verified in the browser and needs no machine.'
+      ]
+    },
+    {
+      date: '2026-08-30',
       version: '1.22.4',
       changes: [
         'Fix #9 — a stopped plot kept looking half-drawn. There is no progress overlay anywhere in the renderer; the only things that recolour the toolpath are restart-from-point\'s range dim and the stroke editor, and dimToolpathOutside() blacks out everything outside the range it is about to plot — its own comment calls that part "already drawn". Nothing put the colours back when the job ended, so after a stop the blacked-out region stayed. jobComplete now restores the plain preview, for a clean finish as well as a stop or abort.',
