@@ -149,10 +149,14 @@ function parseGcodeInWebWorker(gcode) {
             $('#3dviewlabel').html(' 3D View')
             // Reset restart-from-point state when new gcode is loaded
             if (typeof onGcodeReloaded === 'function') onGcodeReloaded();
+            if (typeof strokeOnGcodeChanged === 'function') strokeOnGcodeChanged();
           } else {
-            // Didn't get an Object
+            // Didn't get an Object — an empty editor lands here, and the panels
+            // still hold the previous file's strokes and layers.
             $('#3dviewicon').removeClass('fa-pulse');
             $('#3dviewlabel').html(' 3D View')
+            if (typeof onGcodeReloaded === 'function') onGcodeReloaded();
+            if (typeof strokeOnGcodeChanged === 'function') strokeOnGcodeChanged();
           }
         }
 

@@ -814,9 +814,32 @@ function strokeEnsureBuilt() {
 // Cheap "is there a toolpath?" test, without paying for strokeBuild(). The
 // panel itself is always on screen now; this gates + NEW LAYER, since there is
 // nothing to put in a layer until a file is loaded.
+//
+// The length test is the point. Clearing the editor leaves `object` set to a
+// truthy husk carrying a single linePoint — the parser assigns it before the
+// "did we get anything?" guard — so an existence check reported a loaded file
+// after an unload and left the panel showing the old file's stroke count.
 function strokeHasFile() {
-  return typeof object !== 'undefined' && !!object && !!object.userData && !!object.userData.linePoints;
+  return typeof object !== 'undefined' && !!object && !!object.userData &&
+    !!object.userData.linePoints && object.userData.linePoints.length > 1;
 }
+
+// A new parse replaces the geometry the stroke indices address, so the old
+// strokes, selection and open layer mean nothing against it. Called by the
+// parser for BOTH outcomes — a fresh file and a cleared editor — since only
+// one of those reaches the success branch.
+window.strokeOnGcodeChanged = function () {
+  if (strokeMode === 'edit') strokeSetMode('view');
+  strokeEditingLayerId = null;
+  strokes = [];
+  strokeGrid = null;
+  strokeSelection = {};
+  strokeSelectionCount = 0;
+  strokeUndoStack = [];
+  strokeHover = -1;
+  strokeRangeClearMarks();
+  strokeLayersLoad();
+};
 
 function strokeLayersSave() {
   try {

@@ -3,6 +3,14 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-08-30',
+      version: '1.22.2',
+      changes: [
+        'Fix — clearing the G-code or loading a new file left the LAYERS panel showing the previous file. The 3D mesh did leave the scene, but the parser assigns `object` from the worker result BEFORE the "did we get anything?" guard, so an emptied editor leaves a truthy husk carrying one linePoint. strokeHasFile() only tested that linePoints existed, and an empty array is truthy — so MAIN kept reporting the old stroke count, + NEW LAYER stayed enabled, and the strokes array still addressed geometry that was gone. It now requires more than one point.',
+        'Add strokeOnGcodeChanged(), called by the parser on BOTH outcomes — only a successful parse reached the existing onGcodeReloaded() hook, and an unload is exactly the case that never gets there. It drops the strokes, the grid, the selection, the undo stack and the open layer, leaves edit mode, and reloads the layers for the new file fingerprint.'
+      ]
+    },
+    {
+      date: '2026-08-30',
       version: '1.22.1',
       changes: [
         'Fix — pressing STOP, ABORT or DISCONNECT pushed a high-priority "Plot stopped" alert to your phone for the thing you had just done yourself. The backend decides `failed` purely from queue length (index.js), so a job the operator ended lands on exactly the same jobComplete as a dropped USB cable, and the renderer had no way to tell them apart. Every route to stopping now marks the action first — the CD Stop and Abort buttons, Disconnect, the e-stop keyboard shortcut and the legacy ribbon buttons — and cdNotifyPlotFailed() drops any failure push within 15s of one. Jog cancels are untouched: they emit stop with jog:true and are not job stops.',
