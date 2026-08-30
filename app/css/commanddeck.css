@@ -1708,16 +1708,21 @@
   margin-bottom: 6px;
 }
 
-.cd-layer-hint {
-  letter-spacing: 0;
-  opacity: 0.75;
-}
-
-.cd-layer-empty {
-  padding: 8px 6px 4px;
+/* The panel has to say what it is for: nothing else on screen names the stroke
+   editor, so a month later the pencil is just an icon you no longer recognise. */
+.cd-layer-caption {
   font-family: var(--cd-mono);
   font-size: 9px;
   line-height: 1.5;
+  color: var(--cd-text-muted);
+  margin-bottom: 8px;
+}
+
+.cd-layer-empty {
+  padding: 8px 6px 2px;
+  font-family: var(--cd-mono);
+  font-size: 9px;
+  line-height: 1.55;
   color: var(--cd-text-faint, var(--cd-text-muted));
 }
 
@@ -1762,12 +1767,17 @@
   overflow-y: auto;
 }
 
+/* Two rows: the name spans the first, the count and the buttons share the
+   second. One line at 260px left the name about 80px, which ellipsised
+   anything longer than "Outline". */
 .cd-layer-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 5px;
-  padding: 5px 6px;
-  min-height: 38px;
+  column-gap: 7px;
+  row-gap: 2px;
+  padding: 6px;
+  min-height: 44px;
   border: 1px solid transparent;
   border-left: 3px solid transparent;
   border-radius: 4px;
@@ -1844,15 +1854,23 @@
 }
 
 .cd-layer-swatch {
-  flex: 0 0 8px;
-  height: 8px;
+  flex: 0 0 12px;
+  height: 12px;
   border-radius: 2px;
   background: #999;
 }
 
 .cd-layer-swatch.is-main {
   background: transparent;
-  border: 1px solid var(--cd-text-muted);
+}
+
+.cd-layer-line {
+  grid-column: 2 / 4;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 }
 
 .cd-layer-name {
@@ -1863,9 +1881,55 @@
   white-space: nowrap;
 }
 
-.cd-layer-count {
+.cd-layer-meta {
+  grid-column: 2;
+  grid-row: 2;
+  font-size: 9px;
   color: var(--cd-text-muted);
   font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cd-layer-actions {
+  grid-column: 3;
+  grid-row: 2;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Worded, not a bare pencil: this is the only door into the stroke editor. */
+.cd-layer-edit {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 7px;
+  border: 1px solid var(--cd-border);
+  border-radius: 4px;
+  background: transparent;
+  font-family: var(--cd-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  color: var(--cd-text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.cd-layer-edit i { font-size: 10px; }
+
+.cd-layer-edit:hover {
+  color: var(--pc-primary, #FF6A00);
+  border-color: var(--pc-primary, #FF6A00);
+  background: rgba(255, 106, 0, 0.08);
+}
+
+.cd-layer-edit:focus-visible {
+  outline: 2px solid var(--pc-primary, #FF6A00);
+  outline-offset: 1px;
 }
 
 .cd-layer-btn {
@@ -1903,6 +1967,39 @@
   border-color: var(--pc-primary, #FF6A00);
 }
 
+/* Rename + delete behind one overflow, so the row has room for EDIT. */
+.cd-layer-menu {
+  position: absolute;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  gap: 2px;
+  border: 1px solid var(--cd-border);
+  border-radius: 5px;
+  background: var(--pc-surface, #fff);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+}
+
+.cd-layer-menu button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  font-family: var(--cd-mono);
+  font-size: 10px;
+  color: var(--cd-text);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.cd-layer-menu button:hover { background: rgba(0, 0, 0, 0.06); }
+.cd-layer-menu button.is-danger:hover { background: rgba(220, 53, 69, 0.12); color: #dc3545; }
+
 .cd-layer-edit.is-on:hover {
   color: #fff;
   background: var(--pc-primary, #FF6A00);
@@ -1933,9 +2030,12 @@
   cursor: default;
 }
 
-.cd-stroke-editing {
+/* With no layers yet this button is the only way into the editor, so it stops
+   being a dashed afterthought and reads as the next step. */
+.cd-layer-add.is-primary {
+  border-style: solid;
+  border-color: var(--pc-primary, #FF6A00);
   color: var(--pc-primary, #FF6A00);
-  letter-spacing: 0.06em;
 }
 
 /* ─── Plot target (RUN panel) ─────────────────────────────────────────────── */
@@ -2415,26 +2515,63 @@
   pointer-events: none;
 }
 
+/* A ring around the whole view for as long as edit mode is on. Stroke editing
+   changes what the machine will draw, so it needs the same kind of standing
+   indicator a screen recording gets — spotting it must not depend on reading
+   10px type at the bottom of the window. */
+.cd-edit-frame {
+  position: absolute;
+  inset: 0;
+  z-index: 110;
+  pointer-events: none;
+  border: 2px solid var(--pc-primary, #FF6A00);
+  box-shadow: inset 0 0 0 1px rgba(255, 106, 0, 0.15);
+}
+
+/* Shrink-wrapped and centred. Stretched edge to edge it was a hairline strip
+   with a metre of empty white in the middle — pure chrome, and invisible. */
 .cd-stroke-bar {
   position: absolute;
-  bottom: 12px;
-  left: 12px;
-  right: 12px;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 120;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   padding: 8px 10px;
   background: var(--pc-surface, #fff);
-  border: 1px solid var(--cd-border);
-  border-radius: 6px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 2px solid var(--pc-primary, #FF6A00);
+  border-radius: 8px;
+  box-shadow: 0 6px 22px rgba(255, 106, 0, 0.25);
   font-family: var(--cd-mono);
+  font-size: 11px;
+  white-space: nowrap;
+  animation: cd-stroke-bar-in 0.22s ease-out;
+}
+
+@keyframes cd-stroke-bar-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cd-stroke-bar { animation: none; }
+}
+
+/* The name of what you are editing, as a filled chip — the one thing in the
+   bar that has to be legible from across the room. */
+.cd-stroke-editing {
+  padding: 5px 9px;
+  border-radius: 5px;
+  background: var(--pc-primary, #FF6A00);
+  color: #fff;
   font-size: 10px;
+  letter-spacing: 0.08em;
 }
 
 .cd-stroke-count {
-  color: var(--pc-primary, #FF6A00);
+  color: var(--cd-text);
   font-variant-numeric: tabular-nums;
 }
 
@@ -2443,15 +2580,20 @@
   font-variant-numeric: tabular-nums;
 }
 
-.cd-stroke-spacer { flex: 1; }
+.cd-stroke-spacer {
+  flex: 0 0 1px;
+  align-self: stretch;
+  background: var(--cd-border);
+  margin: 0 2px;
+}
 
 .cd-stroke-bar button {
-  padding: 6px 9px;
+  padding: 7px 11px;
   border: 1px solid var(--cd-border);
   border-radius: 4px;
   background: transparent;
   font-family: var(--cd-mono);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.05em;
   color: var(--cd-text);
   cursor: pointer;

@@ -1115,6 +1115,12 @@
                       <div id="cd-stroke-band" class="cd-stroke-band"></div>
 
 
+                      <!-- Edit mode has to announce itself: a thin full-width
+                           strip at the bottom of a 1900px screen is scenery. The
+                           bar shrink-wraps and centres, and the frame rings the
+                           whole view the way a recording indicator does. -->
+                      <div id="cd-edit-frame" class="cd-edit-frame" style="display:none;"></div>
+
                       <div id="cd-stroke-bar" class="cd-stroke-bar" style="display:none;">
                         <span id="cdStrokeEditingName" class="cd-stroke-editing">EDITING</span>
                         <span id="cdStrokeCount" class="cd-stroke-count">0 of 0 strokes</span>
@@ -1123,7 +1129,7 @@
                         <button id="cdStrokeAll" type="button">ALL</button>
                         <button id="cdStrokeNone" type="button">NONE</button>
                         <button id="cdStrokeInvert" type="button">INVERT</button>
-                        <button id="cdStrokeDone" type="button" class="cd-stroke-primary">DONE</button>
+                        <button id="cdStrokeDone" type="button" class="cd-stroke-primary">&#10003; DONE</button>
                       </div>
 
                       <!-- Reference photo: align a photo of the half-drawn sheet
@@ -1220,10 +1226,14 @@
               <div id="cd-layer-panel" class="cd-layer-panel">
                 <div class="cd-layer-head">
                   <span>LAYERS</span>
-                  <span class="cd-layer-hint">tick to plot</span>
                 </div>
+                <div class="cd-layer-caption">Tick what gets plotted. EDIT changes which strokes a layer holds.</div>
                 <div id="cd-layer-list" class="cd-layer-list"></div>
-                <button id="cdLayerAdd" class="cd-layer-add" type="button">+ NEW LAYER</button>
+                <div id="cd-layer-empty" class="cd-layer-empty" style="display:none;">
+                  No layers yet &mdash; START draws the whole file. A layer is a set of
+                  strokes you can plot on its own: one pen, one colour, one pass.
+                </div>
+                <button id="cdLayerAdd" class="cd-layer-add" type="button">+ NEW LAYER &mdash; PICK STROKES</button>
               </div>
 
 

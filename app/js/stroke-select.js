@@ -543,6 +543,7 @@ function strokeSetMode(mode) {
   $('#cd-stroke-tools').toggle(toEdit);
   $('#cd-tool-options').toggle(toEdit);
   $('#cd-stroke-bar').toggle(toEdit);
+  $('#cd-edit-frame').toggle(toEdit);
   // The layer panel stays up in both modes — it is the plot selector, and you
   // need to change what you are plotting without entering edit mode.
   strokeRefreshLayerUI();
@@ -1036,6 +1037,16 @@ function strokeRefreshLayerUI() {
   var total = strokes.length || 0;
   var editable = (strokeMode === 'edit');
 
+  // Count only: the buttons share this line, so the metres would ellipsise —
+  // and the RUN readout and the EDITING bar both already carry the length.
+  function metaLine(count, isMain) {
+    if (isMain) return 'whole file · ' + (total ? total.toLocaleString() + ' strokes' : 'no file loaded');
+    return count.toLocaleString() + (count === 1 ? ' stroke' : ' strokes');
+  }
+
+  // Two lines per row: the name on top, the count and the buttons below. A
+  // one-line row at 260px had no width left for a worded EDIT button, and a
+  // bare pencil is exactly the thing you no longer recognise a month later.
   function row(id, name, count, rgb, isMain) {
     var plotting = (strokePlotLayerId === id) || (isMain && strokePlotLayerId === null);
     var editing = editable && strokeEditingLayerId === id;
@@ -1045,19 +1056,23 @@ function strokeRefreshLayerUI() {
           'role="radio" aria-checked="' + (plotting ? 'true' : 'false') + '" ' +
           'aria-label="Plot ' + name + '" title="Plot this">' +
           (plotting ? '<i class="fas fa-check" data-act="plot"></i>' : '') + '</button>' +
-        '<span class="cd-layer-swatch' + (isMain ? ' is-main' : '') + '"' +
-          (isMain ? '' : ' data-act="color" role="button" tabindex="0" title="Change colour"') +
-          (rgb ? ' style="background:' + rgb + '"' : '') + '></span>' +
-        '<span class="cd-layer-name">' + $('<i>').text(name).html() + '</span>' +
-        '<span class="cd-layer-count">' + count.toLocaleString() + '</span>' +
+        '<div class="cd-layer-line">' +
+          '<span class="cd-layer-swatch' + (isMain ? ' is-main' : '') + '"' +
+            (isMain ? '' : ' data-act="color" role="button" tabindex="0" title="Change this layer\'s colour"') +
+            (rgb ? ' style="background:' + rgb + '"' : '') + '></span>' +
+          '<span class="cd-layer-name">' + $('<i>').text(name).html() + '</span>' +
+        '</div>' +
         (isMain ? '' :
-          '<button class="cd-layer-btn cd-layer-edit' + (editing ? ' is-on' : '') + '" data-act="editlayer" ' +
-            'type="button" aria-label="Edit strokes" title="Edit this layer\'s strokes">' +
-            '<i class="fas fa-pen" data-act="editlayer"></i></button>' +
-          '<button class="cd-layer-btn" data-act="rename" type="button" aria-label="Rename" title="Rename">' +
-            '<i class="fas fa-font" data-act="rename"></i></button>' +
-          '<button class="cd-layer-btn" data-act="delete" type="button" aria-label="Delete" title="Delete layer">' +
-            '<i class="fas fa-times" data-act="delete"></i></button>') +
+          '<div class="cd-layer-actions">' +
+            '<button class="cd-layer-edit' + (editing ? ' is-on' : '') + '" data-act="editlayer" ' +
+              'type="button" title="Pick which strokes this layer holds">' +
+              '<i class="fas fa-pen" data-act="editlayer"></i>' +
+              '<span data-act="editlayer">' + (editing ? 'EDITING' : 'EDIT') + '</span></button>' +
+            '<button class="cd-layer-btn" data-act="menu" type="button" aria-label="More" ' +
+              'title="Rename or delete">' +
+              '<i class="fas fa-ellipsis-h" data-act="menu"></i></button>' +
+          '</div>') +
+        '<div class="cd-layer-meta">' + metaLine(count, isMain) + '</div>' +
       '</div>';
   }
 
@@ -1067,7 +1082,9 @@ function strokeRefreshLayerUI() {
     $list.append(row(l.id, l.name, l.count, strokeLayerRgb((l.ci !== undefined) ? l.ci : i), false));
   });
 
-  $('#cdLayerAdd').prop('disabled', !strokeHasFile());
+  $('#cd-layer-empty').toggle(strokeLayers.length === 0);
+  $('#cdLayerAdd').prop('disabled', !strokeHasFile())
+    .toggleClass('is-primary', strokeLayers.length === 0 && strokeHasFile());
 
   // RUN panel: readout only.
   var pl = strokeLayerById(strokePlotLayerId);
@@ -1077,6 +1094,32 @@ function strokeRefreshLayerUI() {
     ? pl.count.toLocaleString() + ' of ' + (total || '?').toLocaleString() + ' strokes · ' + (pl.len / 1000).toFixed(2) + ' m'
     : (total ? total.toLocaleString() + ' strokes' : ''));
   $('#cdStartBtn').text(pl ? '▶ START ' + pl.name.toUpperCase() : '▶ START');
+}
+
+// Rename and delete sit behind one overflow button so the row has the width for
+// a worded EDIT. Colour keeps its own direct affordance — the swatch.
+function strokeLayerMenu(id, anchor) {
+  $('#cd-layer-menu').remove();
+  var $pop = $('<div id="cd-layer-menu" class="cd-layer-menu">' +
+    '<button type="button" data-menu="rename"><i class="fas fa-fw fa-font"></i> Rename</button>' +
+    '<button type="button" data-menu="delete" class="is-danger"><i class="fas fa-fw fa-trash"></i> Delete layer</button>' +
+    '</div>');
+  $('#cd-layer-panel').append($pop);
+
+  var pr = anchor.getBoundingClientRect();
+  var wr = document.getElementById('cd-layer-panel').getBoundingClientRect();
+  $pop.css({ top: (pr.bottom - wr.top + 4) + 'px', right: (wr.right - pr.right) + 'px' });
+
+  $pop.on('click', 'button', function (e) {
+    e.stopPropagation();
+    var what = $(this).data('menu');
+    $pop.remove();
+    if (what === 'rename') strokeLayerRename(id);
+    else if (what === 'delete') strokeLayerDelete(id);
+  });
+  setTimeout(function () {
+    $(document).one('click', function () { $('#cd-layer-menu').remove(); });
+  }, 0);
 }
 
 // ── Painting (single owner) ────────────────────────────────────────────────
@@ -1255,13 +1298,12 @@ $(document).ready(function () {
   $('#cdLayerAdd').on('click', strokeLayerNew);
   $('#cdStrokeDone').on('click', strokeLayerEditDone);
 
-  // Layer list: the row opens it for editing, the buttons rename / delete.
+  // Layer list: the row arms the layer for plotting, EDIT opens it, ⋯ renames / deletes.
   $('#cd-layer-list').on('click', '.cd-layer-row', function (e) {
     var id = $(this).data('id') || null;
     var act = $(e.target).data('act');
     if (act === 'plot') { e.stopPropagation(); strokeSetPlotLayer(id); return; }
-    if (act === 'delete') { e.stopPropagation(); strokeLayerDelete(id); return; }
-    if (act === 'rename') { e.stopPropagation(); strokeLayerRename(id); return; }
+    if (act === 'menu') { e.stopPropagation(); strokeLayerMenu(id, $(e.target).closest('.cd-layer-btn')[0]); return; }
     if (act === 'color') { e.stopPropagation(); strokeLayerColorPicker(id, e.target); return; }
     if (act === 'editlayer') {
       e.stopPropagation();
