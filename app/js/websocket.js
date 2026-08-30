@@ -347,6 +347,18 @@ function initSocket() {
         cdNotifyPlotFailed('plot did not finish (aborted or failed)');
       }
 
+      // Put the toolpath back to the plain preview now the run is over.
+      // Nothing draws a progress overlay — the only thing that recolours the
+      // toolpath during a run is restart-from-point's range dim, and its own
+      // comment calls the blacked-out part "already drawn", which is exactly
+      // what a stopped plot kept showing. clearRestartSelection() also clears
+      // restartSelectionActive, which otherwise pins the cone and stops it
+      // tracking the machine. Edit mode owns the colour buffer itself.
+      if (typeof strokeMode === 'undefined' || strokeMode !== 'edit') {
+        if (typeof clearRestartSelection === 'function') clearRestartSelection();
+        if (typeof strokeRepaint === 'function') strokeRepaint();
+      }
+
     }
 
     // With jobCompletedMsg Message

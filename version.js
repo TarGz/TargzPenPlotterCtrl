@@ -3,6 +3,15 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-08-30',
+      version: '1.22.4',
+      changes: [
+        'Fix #9 — a stopped plot kept looking half-drawn. There is no progress overlay anywhere in the renderer; the only things that recolour the toolpath are restart-from-point\'s range dim and the stroke editor, and dimToolpathOutside() blacks out everything outside the range it is about to plot — its own comment calls that part "already drawn". Nothing put the colours back when the job ended, so after a stop the blacked-out region stayed. jobComplete now restores the plain preview, for a clean finish as well as a stop or abort.',
+        'It goes through clearRestartSelection() rather than restoreToolpathColors() alone, because that also clears restartSelectionActive — which gates the live position update, so leaving it set pinned the 3D cone and stopped it tracking the machine on the next run. Edit mode is skipped: the stroke editor owns the colour buffer while it is open.',
+        'Caveat: the mechanism is confirmed and the reset verified (261 blacked-out vertices restored to 0), but this was diagnosed by reading the renderer rather than by reproducing the original report on hardware. If a stopped plot still looks half-drawn, what remains on screen is something else.'
+      ]
+    },
+    {
+      date: '2026-08-30',
       version: '1.22.3',
       changes: [
         'Fix — the disconnect-mid-plot alert existed but was usually swallowed. One failure emits several signals inside the 20s collapse window, and the generic "plot did not finish" from jobComplete normally lands first, so the push you actually received was the one that said least about what happened. A reason is now marked specific (disconnect, ALARM) or generic, and a specific reason may replace a generic one once inside the window.',
