@@ -3,6 +3,16 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-08-30',
+      version: '1.28.0',
+      changes: [
+        'PLOT TARGET is now the single statement of what START will draw, and the layer list is what it opens. The two used to sit on screen together saying the same thing in different words — a permanently docked LAYERS panel and a separate readout below it — which left it unclear which one was the control.',
+        'The target names both halves on their own lines: the layer on top, the file beneath it in muted text, then the stroke count and length. They were on one line before, so a long filename ellipsised away the layer name — the half that actually changes.',
+        'CHANGE opens the list; DONE closes it and returns to the ready-to-plot view. Opening a layer with its pencil reveals the list too, and finishing the edit hides it again, so the flow is: see the target, change it, validate, back to START.',
+        'The target shows for any loaded file rather than only once a layer exists, so "whole file" is stated rather than implied by an absent panel.'
+      ]
+    },
+    {
+      date: '2026-08-30',
       version: '1.27.5',
       changes: [
         'Fix — the JOB card reported "1 LINES" and "100.0%" with nothing running. LINES was written from the backend queueCount event, which carries the STREAMING QUEUE length, not the loaded file: once a job ended the queue collapsed to [0, 1], giving done/total = 1/1 and a card claiming a finished job that had never started. The card conflated the file you loaded with the job that ran.',

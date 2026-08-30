@@ -1227,11 +1227,12 @@
 
               <!-- Layers: MAIN is the whole file and cannot be edited
                    or deleted; the rest are named bunches of strokes. -->
-              <div id="cd-layer-panel" class="cd-layer-panel">
+              <div id="cd-layer-panel" class="cd-layer-panel" style="display:none;">
                 <div class="cd-layer-head">
-                  <span>LAYERS</span>
+                  <span>PLOT TARGET</span>
+                  <button id="cdLayerDone" class="cd-layer-done" type="button">DONE</button>
                 </div>
-                <div class="cd-layer-caption">Tick what gets plotted. EDIT changes which strokes a layer holds.</div>
+                <div class="cd-layer-caption">Tick what START will draw. EDIT changes which strokes a layer holds.</div>
                 <div id="cd-layer-list" class="cd-layer-list"></div>
                 <div id="cd-layer-empty" class="cd-layer-empty" style="display:none;">
                   No layers yet &mdash; START draws the whole file. A layer is a set of
@@ -1258,11 +1259,15 @@
                 <!-- What START will actually plot. Only shown once a part
                      exists — without it there is no way to tell whether the
                      next job is the whole file or a saved subset. -->
+                <!-- The single answer to "what will START draw". CHANGE opens the
+                     layer list; DONE there closes it and comes back here. -->
                 <div id="cd-plot-target" class="cd-plot-target" style="display:none;">
                   <div class="cd-plot-target-head">
                     <span class="cd-plot-target-title">PLOT TARGET</span>
-                    <span id="cdPlotTargetName" class="cd-plot-target-name">Whole file</span>
+                    <button id="cdPlotTargetEdit" class="cd-plot-target-edit" type="button">CHANGE</button>
                   </div>
+                  <div id="cdPlotTargetName" class="cd-plot-target-name">Whole file</div>
+                  <div id="cdPlotTargetFile" class="cd-plot-target-file"></div>
                   <div id="cdPlotTargetMeta" class="cd-plot-target-meta"></div>
                 </div>
 

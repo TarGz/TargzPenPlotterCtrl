@@ -1013,6 +1013,7 @@ function strokeLayerEdit(id) {
     return;
   }
   strokeEditingLayerId = id;
+  $('#cd-layer-panel').show();
   strokeSetMode('edit');
   strokeSelectAllQuiet(false);
   for (var k in l.sel) if (strokes[k]) strokeSet(Number(k), true);
@@ -1027,6 +1028,8 @@ function strokeLayerEditDone() {
   strokeCommitToLayer();
   strokeEditingLayerId = null;
   strokeSetMode('view');
+  // Back to the ready-to-plot view, with the target named.
+  $('#cd-layer-panel').hide();
 }
 
 function strokeSelectAllQuiet(on) {
@@ -1113,10 +1116,16 @@ function strokeRefreshLayerUI() {
   $('#cdLayerAdd').prop('disabled', !strokeHasFile())
     .toggleClass('is-primary', strokeLayers.length === 0 && strokeHasFile());
 
-  // RUN panel: readout only.
+  // RUN panel: the single statement of what START will draw — file AND layer,
+  // because "Layer 1" alone does not say which drawing it belongs to.
   var pl = strokeLayerById(strokePlotLayerId);
-  $('#cd-plot-target').toggle(strokeLayers.length > 0);
+  var file = (typeof loadedFileName !== 'undefined' && loadedFileName)
+    ? loadedFileName.replace(/\.[^/.]+$/, '') : '';
+  $('#cd-plot-target').toggle(strokeHasFile());
+  // Layer on its own line, file beneath it. Both on one line meant a long
+  // filename ellipsised away the layer name — the half that actually changes.
   $('#cdPlotTargetName').text(pl ? pl.name : 'Whole file');
+  $('#cdPlotTargetFile').text(file).toggle(!!file);
   $('#cdPlotTargetMeta').text(pl
     ? pl.count.toLocaleString() + ' of ' + (total || '?').toLocaleString() + ' strokes · ' + (pl.len / 1000).toFixed(2) + ' m'
     : (total ? total.toLocaleString() + ' strokes' : ''));
@@ -1515,6 +1524,19 @@ $(document).ready(function () {
   $('#cdStrokeNone').on('click', function () { strokeSelectAll(false); strokeCommitToLayer(); });
   $('#cdStrokeInvert').on('click', function () { strokeInvert(); strokeCommitToLayer(); });
   $('#cdLayerAdd').on('click', strokeLayerNew);
+
+  // One place to change the target: CHANGE opens the list, DONE closes it.
+  // The list used to sit open permanently beside a separate PLOT TARGET
+  // readout, which stated the same thing twice and left it unclear which one
+  // was the control.
+  $('#cdPlotTargetEdit').on('click', function () {
+    $('#cd-layer-panel').toggle();
+    strokeRefreshLayerUI();
+  });
+  $('#cdLayerDone').on('click', function () {
+    if (strokeMode === 'edit') strokeLayerEditDone();
+    $('#cd-layer-panel').hide();
+  });
   $('#cdStrokeDone').on('click', strokeLayerEditDone);
   $('#cdStrokePumpBtn').on('click', function (e) {
     e.stopPropagation();

@@ -1714,6 +1714,35 @@
 
 /* The panel has to say what it is for: nothing else on screen names the stroke
    editor, so a month later the pencil is just an icon you no longer recognise. */
+.cd-plot-target-edit,
+.cd-layer-done {
+  padding: 3px 9px;
+  border: 1px solid var(--cd-border);
+  border-radius: 4px;
+  background: transparent;
+  font-family: var(--cd-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: var(--cd-text-muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.cd-plot-target-edit:hover,
+.cd-layer-done:hover {
+  color: var(--pc-primary, #FF6A00);
+  border-color: var(--pc-primary, #FF6A00);
+  background: rgba(255, 106, 0, 0.08);
+}
+
+.cd-layer-done {
+  border-color: var(--pc-primary, #FF6A00);
+  background: var(--pc-primary, #FF6A00);
+  color: #fff;
+}
+
+.cd-layer-done:hover { color: #fff; filter: brightness(1.08); }
+
 .cd-layer-caption {
   font-family: var(--cd-mono);
   font-size: 9px;
@@ -2075,11 +2104,24 @@
 
 #cdPlotTargetClear:hover { color: var(--pc-primary, #FF6A00); }
 
+/* file › layer on its own full-width line — it used to share the head row at
+   max-width 60%, which ellipsised the name that says what will be drawn. */
 .cd-plot-target-name {
+  display: block;
+  margin-top: 2px;
   font-family: var(--cd-mono);
   font-size: 11px;
   color: var(--pc-primary, #FF6A00);
-  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cd-plot-target-file {
+  margin-top: 1px;
+  font-family: var(--cd-mono);
+  font-size: 9px;
+  color: var(--cd-text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
