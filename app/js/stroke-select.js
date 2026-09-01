@@ -257,7 +257,10 @@ function strokeBgColor() {
 // drawing, and where a lift is in the wrong place shows up.
 var STROKE_DIM = [0.86, 0.85, 0.82];
 
-function strokePaintBuffer(pick, color, hideTravel) {
+// `rest` is the colour for ink outside `pick`. The editor dims it, because you
+// need something to aim at while painting. A chosen version hides it, because
+// there the picture has to be what START will draw and nothing else.
+function strokePaintBuffer(pick, color, hideTravel, rest) {
   if (!object || !object.geometry || !object.geometry.attributes.color) return;
 
   var colors = object.geometry.attributes.color;
@@ -281,7 +284,7 @@ function strokePaintBuffer(pick, color, hideTravel) {
     var st = strokes[t];
     if (!st) continue;
     var on = !pick || pick[t];
-    var c = on ? color : STROKE_DIM;
+    var c = on ? color : (rest || STROKE_DIM);
     var to = Math.min((st.b + 1) * 3, total);
     for (var j = st.a * 3; j < to; j += 3) {
       if (on && !c) {
@@ -311,6 +314,10 @@ function strokeLayerPaint(layer) {
 
 function strokeApplyColors() {
   strokePaintBuffer(strokeSelection, strokeLayerPaint(strokeLayerById(strokeEditingLayerId)), true);
+  // The chain is drawn from the selection, so every repaint that follows a
+  // selection change has to rebuild it. Doing it here rather than at each of
+  // the callers is the difference between one owner and seven.
+  strokeVersionTravelBuild();
   if (strokeHover >= 0) strokePaintHover(strokeHover);
 }
 
@@ -616,9 +623,7 @@ function strokeSetMode(mode) {
     strokeSetTool(strokeTool);
     strokeSetPaintMode(strokePaintMode);
     strokeUpdateStats();
-    strokeRefreshPumpBtn();
   } else {
-    $('#cd-pump-menu').remove();
   }
   strokeRepaint();
 }
@@ -951,7 +956,7 @@ window.strokeOnGcodeChanged = function () {
   strokeUndoStack = [];
   strokeHover = -1;
   strokeRangeClearMarks();
-  strokePumpMarksClear();
+  strokeVersionTravelClear();
   strokeLayersLoad();
 };
 
@@ -1142,8 +1147,14 @@ function strokeLayerEdit(id) {
 
 function strokeLayerEditDone() {
   strokeCommitToLayer();
+  // Finishing a version arms it. You just decided what it holds, so it is what
+  // you meant to plot — dropping back to MAIN made every new version take a
+  // second press to become the thing you had only just built.
+  if (strokeEditingLayerId && strokeLayerById(strokeEditingLayerId)) {
+    strokePlotLayerId = strokeEditingLayerId;
+  }
   strokeEditingLayerId = null;
-  strokeSetMode('view');
+  strokeSetMode('view');   // refreshes the list and repaints
   strokeRefreshPanelVisibility();
 }
 
@@ -1157,8 +1168,8 @@ function strokeSelectAllQuiet(on) {
 // press on the row that is already selected — selecting used to open the editor
 // too, which meant you could not simply choose what to plot.
 function strokeSetPlotLayer(id) {
-  strokePlotLayerId = strokeLayerById(id) ? id : null;
   if (strokeMode === 'edit') strokeLayerEditDone();
+  strokePlotLayerId = strokeLayerById(id) ? id : null;
   strokeRefreshLayerUI();
   strokeRepaint();
 }
@@ -1278,10 +1289,14 @@ function strokeLayerMenu(id, anchor) {
 
 function strokeRepaint() {
   if (!object || !object.geometry || !object.geometry.attributes.color) return;
-  if (strokeMode === 'edit') strokeApplyColors();
-  else strokePaintViewMode();
-  strokePumpMarksBuild();
+  if (strokeMode === 'edit') {
+    strokeApplyColors();      // rebuilds the chain itself
+  } else {
+    strokePaintViewMode();
+    strokeVersionTravelBuild();
+  }
 }
+
 
 // View mode. Same painter as the editor, so the drawing does not change
 // character when you leave edit mode — only which strokes are picked out, and
@@ -1294,8 +1309,15 @@ function strokePaintViewMode() {
     return;
   }
   var pl = strokeLayerById(strokePlotLayerId);
-  if (pl) strokePaintBuffer(pl.sel, strokeLayerPaint(pl), false);
-  else strokePaintBuffer(null, null, false);
+  if (pl) {
+    // Only the version, and only its own travel. The file's own pen-up moves
+    // join strokes this run will not draw, so showing them drew a plot that
+    // does not exist — and the rest of the file dimmed behind it read as
+    // "this is also going to be drawn".
+    strokePaintBuffer(pl.sel, strokeLayerPaint(pl), true, strokeBgColor());
+  } else {
+    strokePaintBuffer(null, null, false);
+  }
 }
 
 // Called by runJobFile: the G-code to stream, or null to plot the whole file.
@@ -1307,240 +1329,205 @@ window.strokePartGcodeIfArmed = function () {
   return strokeBuildGcode(Object.keys(pl.sel).map(Number).sort(function (a, b) { return a - b; }));
 };
 
+// A version is a CUT of the source file, not a re-write of it.
+//
+// The file already separates every stroke and already carries its own approach:
+// the lift, the move across, the priming dip, the pen-down, the feedrates. So a
+// version copies those lines out verbatim and drops the strokes it does not
+// want. Nothing is re-derived, which is the point — what a version plots is
+// byte-for-byte what MAIN would have plotted for the same strokes, at the same
+// heights, with the same priming.
+//
+// The generator this replaces rebuilt each stroke from geometry, so the pen
+// heights and the priming came from the app's own settings instead of the file.
+// It let you re-tune them without going back through vpype, and that is exactly
+// how a version came to plunge on a G0 where the file used G1 F20000, lower the
+// pen five times slower, and skip priming entirely when the PUMP button was off.
+//
+// Every stroke knows the source lines it came from (lineA/lineB), and every
+// vertex carries its own line number (indx), so the approach block in front of
+// a stroke is the run of lines between the previous stroke's end and this one.
 function strokeBuildGcode(keep) {
+  if (!keep || !keep.length) return '';
   var lp = object.userData.linePoints;
 
-  // One reader for the pen heights, shared with the jog buttons. This used to
-  // re-read localStorage with its OWN fallbacks of 5 and 0, so on a profile that
-  // had never set them the jog panel moved to -15 / -29 while a layer plot went
-  // to 5 / 0 — two copies of a default is exactly how plotting and jogging end
-  // up meaning different heights.
-  var pens = (typeof cdReadPenHeights === 'function')
-    ? cdReadPenHeights()
-    : { up: -15, down: -29, pump: -35 };
+  var text = (typeof editor !== 'undefined' && editor.session) ? editor.session.getValue() : '';
+  if (!text) return '';
+  var lines = text.split('\n');
 
-  var firstLine = strokes[keep[0]].lineA + 1;
-  var state = (typeof scanModalState === 'function') ? scanModalState(firstLine) : null;
-
-  var g = '';
-  g += '; === SELECTION - ' + keep.length + ' of ' + strokes.length + ' strokes ===\n';
-  g += '; Generated: ' + new Date().toISOString() + '\n';
-  g += '; Coordinates are unchanged from the source file so this registers\n';
-  g += '; with what is already drawn. Do NOT re-zero before running.\n\n';
-
-  if (state) {
-    g += state.units + '\n';
-    g += 'G90\n';
-    g += state.wcs + '\n';
-    g += state.plane + '\n';
-    if (state.feedRateMode) g += state.feedRateMode + '\n';
-  } else {
-    g += 'G21\nG90\n';
+  // The line a vertex sits on, or -1 when the parser could not map it.
+  function lineOf(v) {
+    var p = lp[v];
+    return (p && p.indx !== undefined) ? p.indx : -1;
   }
 
-  var feed = (state && state.lastCuttingFeed) ? state.lastCuttingFeed : null;
-
-  // This generator does not filter the source file, it rebuilds one from the
-  // stroke geometry — so anything the source did between strokes, a priming dip
-  // included, exists here only if it is emitted deliberately. The mode comes
-  // from the PUMP control on the edit bar.
-  var pump = (typeof cdReadPump === 'function') ? cdReadPump() : { mode: 'off' };
-  var pumped = strokePumpPlan(keep);
-  if (pump.mode !== 'off') {
-    g += '; Pump: Z' + pump.z + ' — ' +
-      (pump.mode === 'line' ? 'every stroke' : 'every ' + pump.distance + 'mm drawn') +
-      ', ' + pump.dwell + 'ms dwell\n';
-  }
-
-  keep.forEach(function (idx, n) {
-    var s = strokes[idx];
-    var p0 = lp[s.a];
-    g += '\n; --- stroke ' + idx + ' (lines ' + (s.lineA + 1) + '-' + (s.lineB + 1) + ') ---\n';
-    g += 'G0 Z' + pens.up + '\n';
-    g += 'G0 X' + (p0.x).toFixed(3) + ' Y' + (p0.y).toFixed(3) + '\n';
-    // Dip below drawing height at the stroke's own start, then rise to draw, so
-    // nothing is dragged across the sheet on the way to the dip.
-    if (pumped[n]) {
-      g += 'G0 Z' + pump.z + '\n';
-      // Without this the dip reverses on the very next line and the pen never
-      // physically settles at depth — the plot primes less than the button does.
-      if (pump.dwell > 0) g += 'G4 P' + (pump.dwell / 1000).toFixed(3) + '\n';
-    }
-    g += 'G1 Z' + pens.down + (feed ? ' F' + feed : '') + '\n';
-    for (var i = s.a + 1; i <= s.b; i++) {
-      var p = lp[i];
-      g += 'G1 X' + p.x.toFixed(3) + ' Y' + p.y.toFixed(3) + (feed ? ' F' + feed : '') + '\n';
-    }
-  });
-
-  g += '\n; --- done ---\nG0 Z' + pens.up + '\n';
-  return g;
-}
-
-// ── Pump mode ──────────────────────────────────────────────────────────────
-//
-// Lives on the edit bar, not in Settings: it belongs to the layer you are about
-// to plot, and the depth it dips to is the PUMP height the jog panel already
-// owns. Three modes only — anything finer is the generator's job upstream.
-
-var STROKE_PUMP_MODES = [
-  { id: 'off',  label: 'Pen up / down',    hint: 'No priming dip. What a pen that feeds itself wants.' },
-  { id: 'line', label: 'Pump per line',    hint: 'A dip at the start of every stroke.' },
-  { id: 'dist', label: 'Pump per distance', hint: 'A dip once the drawn length passes the interval.' }
-];
-
-// Which of `keep` get a dip. ONE owner for the rule: the generator emits from
-// it and the preview draws from it, so the picture cannot drift from the plot.
-// Per line is every stroke; per distance fires once the drawn length since the
-// last dip runs past the interval. Either way the first stroke pumps — a layer
-// starts with whatever the pen was left holding.
-function strokePumpPlan(keep) {
-  var pump = (typeof cdReadPump === 'function') ? cdReadPump() : { mode: 'off' };
   var out = [];
-  var acc = 0;
-  keep.forEach(function (idx, n) {
-    var on = (pump.mode === 'line') ||
-      (pump.mode === 'dist' && (n === 0 || acc >= pump.distance));
-    out.push(on);
-    acc = on ? 0 : acc;
-    acc += strokes[idx] ? strokes[idx].len : 0;
+  out.push('; === VERSION - ' + keep.length + ' of ' + strokes.length + ' strokes ===');
+  out.push('; Lines copied unchanged from ' +
+    ((typeof loadedFileName !== 'undefined' && loadedFileName) ? loadedFileName : 'the source file') + '.');
+  out.push('; Same coordinates, same pen heights, same priming — so this');
+  out.push('; registers with what is already on the sheet. Do NOT re-zero.');
+  out.push('');
+
+  // Everything before the first move: units, plane, absolute mode. Copied so the
+  // modal state is the file's own rather than a guess about it.
+  var firstMove = lineOf(0);
+  if (firstMove > 0) out.push.apply(out, lines.slice(0, firstMove));
+
+  keep.forEach(function (idx) {
+    var s = strokes[idx];
+    if (!s || s.lineB < 0) return;
+    // The approach: from just after the previous stroke in the FILE (kept or
+    // not) up to the end of this one. That run is this stroke's lift, move,
+    // dip and pen-down, exactly as the file wrote them.
+    var prev = strokes[idx - 1];
+    var from = prev ? lineOf(prev.b + 1) : firstMove;
+    if (from < 0) from = s.lineA;
+    out.push.apply(out, lines.slice(from, s.lineB + 1));
   });
-  return out;
+
+  // The lift off the final stroke, so the pen does not stay down at the end.
+  var last = strokes[keep[keep.length - 1]];
+  if (last) {
+    var lift = lineOf(last.b + 1);
+    if (lift > last.lineB) out.push.apply(out, lines.slice(last.lineB + 1, lift + 1));
+  }
+
+  return out.join('\n') + '\n';
 }
 
 // The dips do not exist in the file — they are synthesised at plot time — so
 // the preview has to draw its own geometry for them. A child of `object` rather
 // than a scene member, so it inherits the toolpath's scale and dies with it on
 // a re-parse, and so the colour-buffer painters never touch it.
-var strokePumpObj = null;
 
-function strokePumpMarksClear() {
-  if (strokePumpObj) {
-    if (strokePumpObj.parent) strokePumpObj.parent.remove(strokePumpObj);
-    if (strokePumpObj.geometry) strokePumpObj.geometry.dispose();
-    strokePumpObj = null;
+// ── Version travel preview ─────────────────────────────────────────────────
+//
+// The pen-up moves a chosen version will actually make. They are not in the
+// toolpath: the file's travel joins the strokes the FILE draws, in the file's
+// order, while a version skips most of them — so plotting one hops between the
+// strokes it kept, and those hops exist nowhere until they are built here.
+//
+// Same order strokeBuildGcode() streams in (index ascending), so the picture
+// and the G-code cannot disagree about where the pen goes.
+
+var strokeTravelObj = null;
+
+function strokeVersionTravelClear() {
+  if (strokeTravelObj) {
+    if (strokeTravelObj.parent) strokeTravelObj.parent.remove(strokeTravelObj);
+    if (strokeTravelObj.geometry) strokeTravelObj.geometry.dispose();
+    strokeTravelObj = null;
   }
 }
 
-// The set a plot would actually use: the layer being edited, else the one armed
-// for plotting. MAIN streams the source file untouched, so it gets no marks.
-function strokePumpPreviewSet() {
-  var l = strokeLayerById(strokeEditingLayerId) || strokeLayerById(strokePlotLayerId);
-  if (!l) return null;
-  var src = (strokeMode === 'edit' && strokeEditingLayerId === l.id) ? strokeSelection : l.sel;
-  return Object.keys(src).map(Number).sort(function (a, b) { return a - b; });
+// Both ends of a travel segment, read straight off the file's own colour
+// buffer.
+//
+// They have to be the theme's values, not the version's colour, and not those
+// values rescaled. The theme writes lines on a 0-200 scale that the shader
+// clamps to 1, so MAIN's rapid is a pure (0,200,0) and its ink a pure
+// (200,0,0) — and the yellow you see on every pen-down is what those two
+// interpolate to: (100,100,0), where red and green both clamp full.
+//
+// That only works for PURE colours. A version's colour is [0.85,0.10,0.10];
+// scaled to the buffer it becomes (170,20,20), whose three components all clamp
+// to 1 — white. So the travel chain borrows the file's colours rather than the
+// version's, which is also what makes it read as travel.
+function strokeToolpathColors() {
+  if (!originalToolpathColors || !strokes.length) return null;
+  var isInk = {};
+  for (var t = 0; t < strokes.length; t++) {
+    for (var i = strokes[t].a; i <= strokes[t].b; i++) isInk[i] = true;
+  }
+  var count = originalToolpathColors.length / 3;
+  var at = function (v) {
+    return new THREE.Color(
+      originalToolpathColors[v * 3],
+      originalToolpathColors[v * 3 + 1],
+      originalToolpathColors[v * 3 + 2]
+    );
+  };
+  var rapid = null, ink = null;
+  for (var v = 0; v < count && (!rapid || !ink); v++) {
+    if (isInk[v]) { if (!ink) ink = at(v); }
+    else if (!rapid) rapid = at(v);
+  }
+  return (rapid && ink) ? { rapid: rapid, ink: ink } : null;
 }
 
-function strokePumpMarksBuild() {
-  strokePumpMarksClear();
+function strokeVersionTravelBuild() {
+  strokeVersionTravelClear();
   if (typeof THREE === 'undefined' || !object || !object.userData || !strokes.length) return;
-  var pump = (typeof cdReadPump === 'function') ? cdReadPump() : { mode: 'off' };
-  if (pump.mode === 'off') return;
 
-  var keep = strokePumpPreviewSet();
-  if (!keep || !keep.length) return;
+  // Same chain in both modes — what is being edited and what is armed are the
+  // same kind of thing, so they get the same picture. The file's own travel
+  // stays hidden either way: that was the clutter, thousands of crossings for
+  // strokes this run will not draw. These are the selection's own, and there
+  // are as many of them as there are strokes you picked.
+  var editing = (strokeMode === 'edit');
+  var sel = editing ? strokeSelection : null;
+  var layer = editing
+    ? strokeLayerById(strokeEditingLayerId)
+    : strokeLayerById(strokePlotLayerId);
+  if (!editing) {
+    if (!layer) return;
+    sel = layer.sel;
+  }
+  if (!sel) return;
 
-  var plan = strokePumpPlan(keep);
+  var keep = Object.keys(sel).map(Number).sort(function (a, b) { return a - b; });
+  if (!keep.length) return;
+
+  var pal = strokeToolpathColors();
+  if (!pal) return;
+  var rapid = pal.rapid, inkCol = pal.ink;
+
   var lp = object.userData.linePoints;
-  var pens = (typeof cdReadPenHeights === 'function')
-    ? cdReadPenHeights() : { down: 0 };
-  // Pen heights are mm; the toolpath is in file units and the object carries the
-  // inch scale, so bring the two Z values into the same space as lp.
   var zs = object.userData.inch ? (1 / 25.4) : 1;
+  var pens = (typeof cdReadPenHeights === 'function') ? cdReadPenHeights() : { up: -15 };
+  var zUp = pens.up * zs;
 
-  // A vertical alone is a dot in the top view, which is the view you are in by
-  // default — so each dip is a vertical PLUS a small cross at its XY, and the
-  // mark reads from any angle.
-  // Sized off the drawing, not a fixed mm: 1.5mm is sub-pixel on a 280mm sheet
-  // at fit-zoom. World-space, so it grows as you zoom in, like the toolpath.
-  var bb = object.userData.bbbox2;
-  var span = bb ? Math.max(bb.max.x - bb.min.x, bb.max.y - bb.min.y) : 100;
-  var arm = Math.max(1 * zs, span * 0.01);
-  var pos = [];
+  var pos = [], col = [];
+  function seg(ax, ay, az, ac, bx, by, bz, bc) {
+    pos.push(ax, ay, az, bx, by, bz);
+    col.push(ac.r, ac.g, ac.b, bc.r, bc.g, bc.b);
+  }
+
+  // Exactly what strokeBuildGcode() streams between strokes: lift straight up,
+  // cross at pen-up height, drop onto the next start. Drawn as three segments
+  // with per-vertex colours rather than one flat line, because the yellow you
+  // read on this view is not a colour — it is the gradient along the verticals
+  // where a rapid meets ink, and a solid green hop has no such gradient.
   keep.forEach(function (idx, n) {
-    if (!plan[n]) return;
-    var p0 = lp[strokes[idx].a];
-    if (!p0) return;
-    var zd = pens.down * zs;
-    pos.push(p0.x, p0.y, zd, p0.x, p0.y, pump.z * zs);
-    pos.push(p0.x - arm, p0.y, zd, p0.x + arm, p0.y, zd);
-    pos.push(p0.x, p0.y - arm, zd, p0.x, p0.y + arm, zd);
+    var st = strokes[idx];
+    if (!st) return;
+    var a = lp[st.a], b = lp[st.b];
+    if (!a || !b) return;
+
+    // Drop onto this stroke.
+    seg(a.x, a.y, zUp, rapid, a.x, a.y, a.z, inkCol);
+
+    // Lift off it, and cross to the next one.
+    var nextIdx = keep[n + 1];
+    var next = (nextIdx !== undefined) ? strokes[nextIdx] : null;
+    var nextA = next ? lp[next.a] : null;
+    seg(b.x, b.y, b.z, inkCol, b.x, b.y, zUp, rapid);
+    if (nextA) seg(b.x, b.y, zUp, rapid, nextA.x, nextA.y, zUp, rapid);
   });
   if (!pos.length) return;
 
   var geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  // Magenta deliberately: STROKE_LAYER_COLORS contains an amber, so an amber
-  // mark vanished into whichever layer happened to be drawn in it.
-  strokePumpObj = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0xFF2D95 }));
-  strokePumpObj.name = 'pumpmarks';
-  object.add(strokePumpObj);
-}
-
-function strokePumpLabel() {
-  var p = (typeof cdReadPump === 'function') ? cdReadPump() : { mode: 'off' };
-  if (p.mode === 'line') return 'PUMP: PER LINE';
-  if (p.mode === 'dist') return 'PUMP: ' + p.distance + 'MM';
-  return 'PUMP: OFF';
-}
-
-function strokeRefreshPumpBtn() {
-  $('#cdStrokePumpBtn').text(strokePumpLabel())
-    .toggleClass('is-on', (typeof cdReadPump === 'function') && cdReadPump().mode !== 'off');
-}
-
-function strokePumpMenu(anchor) {
-  $('#cd-pump-menu').remove();
-  var cur = cdReadPump();
-  var html = '<div id="cd-pump-menu" class="cd-pump-menu">';
-  STROKE_PUMP_MODES.forEach(function (m) {
-    html += '<button type="button" data-mode="' + m.id + '"' + (cur.mode === m.id ? ' class="is-on"' : '') + '>' +
-      '<span class="cd-pump-label">' + m.label + '</span>' +
-      '<span class="cd-pump-hint">' + m.hint + '</span></button>';
-  });
-  html += '<div class="cd-pump-dist"><label for="cdPumpDistance">every</label>' +
-    '<input id="cdPumpDistance" type="number" min="1" step="10" value="' + cur.distance + '">' +
-    '<span>mm drawn</span></div>';
-  // Always shown: it is also the dwell the jog panel's PUMP button uses, so it
-  // is not specific to a mode.
-  html += '<div class="cd-pump-row"><label for="cdPumpDwell">hold</label>' +
-    '<input id="cdPumpDwell" type="number" min="0" step="50" value="' + cur.dwell + '">' +
-    '<span>ms at depth</span></div>';
-  html += '</div>';
-
-  var $pop = $(html).appendTo('#tab-three');
-  var pr = anchor.getBoundingClientRect();
-  var wr = document.getElementById('tab-three').getBoundingClientRect();
-  $pop.css({ bottom: (wr.bottom - pr.top + 6) + 'px', left: (pr.left - wr.left) + 'px' });
-  $pop.toggleClass('has-dist', cur.mode === 'dist');
-
-  $pop.on('click', 'button', function (e) {
-    e.stopPropagation();
-    localStorage.setItem('pumpMode', $(this).data('mode'));
-    $pop.find('button').removeClass('is-on');
-    $(this).addClass('is-on');
-    $pop.toggleClass('has-dist', $(this).data('mode') === 'dist');
-    strokeRefreshPumpBtn();
-    strokeRepaint();
-  });
-  $pop.on('click', '.cd-pump-dist, .cd-pump-row', function (e) { e.stopPropagation(); });
-  $pop.on('change input', '#cdPumpDwell', function () {
-    var v = parseFloat($(this).val());
-    if (isNaN(v) || v < 0) return;
-    localStorage.setItem('pumpDwell', v);
-  });
-  $pop.on('change input', '#cdPumpDistance', function () {
-    var v = parseFloat($(this).val());
-    if (isNaN(v) || v <= 0) return;
-    localStorage.setItem('pumpDistance', v);
-    strokeRefreshPumpBtn();
-    strokeRepaint();
-  });
-  $pop.on('keydown', 'input', function (e) { e.stopPropagation(); if (e.which === 13) $pop.remove(); });
-
-  setTimeout(function () {
-    $(document).one('click', function () { $('#cd-pump-menu').remove(); });
-  }, 0);
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  // THREE.VertexColors, not true: this build of three.js takes an enum here
+  // (NoColors 0 / FaceColors 1 / VertexColors 2), and a boolean leaves the
+  // per-vertex colours switched off — the whole chain then draws in the
+  // material's default white. 3dview.js builds the toolpath the same way.
+  strokeTravelObj = new THREE.LineSegments(geo,
+    new THREE.LineBasicMaterial({ vertexColors: THREE.VertexColors }));
+  strokeTravelObj.name = 'versiontravel';
+  object.add(strokeTravelObj);
 }
 
 // ── Wiring ─────────────────────────────────────────────────────────────────
@@ -1603,10 +1590,6 @@ $(document).ready(function () {
   $('#cdLayerAdd').on('click', strokeLayerNew);
 
   $('#cdStrokeDone').on('click', strokeLayerEditDone);
-  $('#cdStrokePumpBtn').on('click', function (e) {
-    e.stopPropagation();
-    strokePumpMenu(this);
-  });
 
   // The row arms a version; ⋯ edits, renames or deletes it.
   $('#cd-layer-list').on('click', '.cd-layer-row', function (e) {

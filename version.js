@@ -3,6 +3,20 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-09-01',
+      version: '1.32.0',
+      changes: [
+        'A version is now a CUT of the G-code file instead of a rewrite of it. The file already separates every stroke and already carries its own approach — the lift, the move across, the priming dip, the pen-down, the feedrates — so a version copies those lines out verbatim and drops the strokes it does not want.',
+        'That removes three silent divergences from MAIN, by construction rather than by correction: the priming dip was emitted as a G0 rapid where the file used G1 F20000, the pen came down at F4000 instead of F20000, and priming was skipped entirely whenever the PUMP button happened to be off — so replotting a version of a pump-marker drawing could run the pen dry.',
+        'The pen heights no longer come from a second place either. They were read from the jog panel, which is only the same as the file until someone changes them.',
+        'Pump options are gone from edit mode: the file decides priming now. The PUMP button on the jog panel is untouched — that one moves the machine.',
+        'Finishing a version arms it. Dropping back to MAIN meant every new version took a second press to become the thing you had only just built.',
+        'Fix — choosing MAIN mid-edit armed the version being edited instead. The target was written before the edit was closed, and closing it overwrote the choice.',
+        'A chosen version shows only itself: its strokes, and the pen-up moves it will actually make. The file\'s own travel joins strokes the run will not draw, so showing it drew a plot that does not exist.',
+        'Those moves are drawn as the real lift / cross / descend chain rather than a flat hop, in the file\'s own colours, so a version reads like the file it came from — including the yellow on every pen-down, which is not a colour at all but what the theme\'s (0,200,0) and (200,0,0) interpolate to once the shader clamps them.'
+      ]
+    },
+    {
+      date: '2026-09-01',
       version: '1.31.0',
       changes: [
         'An edit is now a VERSION, not a layer. It was never a layer in the drawing sense — it is a saved answer to "what should this run draw", and the word kept implying the other thing.',

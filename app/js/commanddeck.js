@@ -417,17 +417,6 @@ $(document).ready(function () {
   // jog panel already owns — this only decides whether, and how often, a layer
   // plot dips to it. 'off' means pen up/down only, which is what a pen that
   // needs no priming wants and what the generator did before.
-  window.cdReadPump = function () {
-    var z = parseFloat(localStorage.getItem('penPumpZ'));
-    var d = parseFloat(localStorage.getItem('pumpDistance'));
-    var w = parseFloat(localStorage.getItem('pumpDwell'));
-    var mode = localStorage.getItem('pumpMode');
-    if (isNaN(z)) z = -35;
-    if (isNaN(d) || d <= 0) d = 300;
-    if (isNaN(w) || w < 0) w = 500;
-    if (mode !== 'line' && mode !== 'dist') mode = 'off';
-    return { mode: mode, z: z, distance: d, dwell: w };
-  };
   window.cdRefreshPenHints = function () {
     var p = cdReadPenHeights();
     var fmt = function (v) { return v.toFixed(1); };
