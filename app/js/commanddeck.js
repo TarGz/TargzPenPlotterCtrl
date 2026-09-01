@@ -726,23 +726,36 @@ $(document).ready(function () {
     $('#cd-scrub-panel').show();
   };
 
-  // ─── Settings / Machine Control tab swap in CD top bar ──────────────────
-  function cdShowMachine() {
-    $('#cd-position-strip').show();
-    $('#cd-main').show();
-    $('#cd-settings-layout').hide();
-    $('#cdTabMachine').addClass('cd-tab-active');
-    $('#cdTabTroubleshooting').removeClass('cd-tab-active');
-  }
-  function cdShowSettings() {
-    if (typeof window.cdSettingsInit === 'function') window.cdSettingsInit();
-    $('#cd-position-strip').hide();
-    $('#cd-main').hide();
-    $('#cd-settings-layout').css('display', 'flex');
-    $('#cdTabTroubleshooting').addClass('cd-tab-active');
-    $('#cdTabMachine').removeClass('cd-tab-active');
-  }
+  // ─── Top bar tabs: MACHINE CONTROL | SVG | SETTINGS ─────────────────────
+  // One table, one switch. With each view hiding the others by hand a third
+  // tab meant six statements to keep in step, which is how you end up with a
+  // hidden view and a highlighted tab.
+  var CD_VIEWS = {
+    machine:  { el: '#cd-main',           tab: '#cdTabMachine',         strip: true,  display: 'flex' },
+    vpype:    { el: '#cd-vpype-layout',   tab: '#cdTabVpype',           strip: false, display: 'flex' },
+    settings: { el: '#cd-settings-layout',tab: '#cdTabTroubleshooting', strip: false, display: 'flex' }
+  };
+
+  window.cdShowView = function (name) {
+    var view = CD_VIEWS[name];
+    if (!view) return;
+    if (name === 'settings' && typeof window.cdSettingsInit === 'function') window.cdSettingsInit();
+
+    Object.keys(CD_VIEWS).forEach(function (k) {
+      var v = CD_VIEWS[k];
+      $(v.el).css('display', k === name ? v.display : 'none');
+      $(v.tab).toggleClass('cd-tab-active', k === name);
+    });
+    $('#cd-position-strip').toggle(view.strip);
+
+    if (name === 'vpype' && typeof window.vpypeOnShow === 'function') window.vpypeOnShow();
+  };
+
+  function cdShowMachine() { window.cdShowView('machine'); }
+  function cdShowSettings() { window.cdShowView('settings'); }
+
   $('#cdTabMachine').on('click', cdShowMachine);
+  $('#cdTabVpype').on('click', function () { window.cdShowView('vpype'); });
   $('#cdTabTroubleshooting').on('click', cdShowSettings);
 
   // ─── CD-aware reconnect helpers ──────────────────────────────────────────

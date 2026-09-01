@@ -3570,3 +3570,396 @@
   opacity: 0.55;
   pointer-events: none;
 }
+
+/* ─── SVG → G-code (vpype) ────────────────────────────────────────────────── */
+/* Third tab, beside MACHINE CONTROL and SETTINGS. A view rather than a dialog:
+   choosing an SVG is a workflow of its own, and what it produces hands straight
+   over to the machine view. Two columns — what vpype will be told on the left,
+   what it said and made on the right. */
+
+#cd-vpype-layout {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  background: var(--cd-bg);
+  overflow: hidden;
+}
+
+.cd-vpype-form {
+  width: 380px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  padding: 4px 16px 20px;
+  background: var(--cd-panel);
+  border-right: 1px solid var(--cd-border);
+}
+
+.cd-vpype-out {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 12px 16px 0;
+}
+
+.cd-vpype-out-block {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding-bottom: 12px;
+}
+
+.cd-vpype-out-grow { flex: 1; }
+
+/* Fields ------------------------------------------------------------------ */
+
+.cd-vpype-section {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--cd-border);
+}
+
+.cd-vpype-section:last-child { border-bottom: none; }
+
+.cd-vpype-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.cd-vpype-label {
+  flex: 0 0 84px;
+  font-family: var(--cd-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--cd-text-muted);
+}
+
+.cd-vpype-field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--cd-panel-alt);
+  border: 1px solid var(--cd-border);
+  border-radius: 5px;
+  padding: 5px 10px;
+  transition: border-color 0.15s;
+}
+
+.cd-vpype-field:focus-within { border-color: var(--cd-border-strong); }
+
+.cd-vpype-field input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: var(--cd-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cd-text);
+  text-align: right;
+  appearance: textfield;
+  -moz-appearance: textfield;
+  padding: 0;
+}
+
+.cd-vpype-field input::-webkit-inner-spin-button,
+.cd-vpype-field input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.cd-vpype-unit {
+  font-family: var(--cd-mono);
+  font-size: 10px;
+  color: var(--cd-text-faint);
+  flex-shrink: 0;
+}
+
+.cd-vpype-seg {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 5px;
+}
+
+.cd-vpype-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.cd-vpype-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--cd-mono);
+  font-size: 11px;
+  color: var(--cd-text);
+  cursor: pointer;
+}
+
+.cd-vpype-check input { accent-color: var(--cd-accent); cursor: pointer; }
+
+.cd-vpype-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 10px;
+}
+
+.cd-vpype-grid .cd-vpype-label { flex-basis: 46px; }
+
+.cd-vpype-hint {
+  font-family: var(--cd-mono);
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--cd-text-faint);
+  margin-top: 6px;
+}
+
+/* Source ------------------------------------------------------------------ */
+
+.cd-vpype-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.cd-vpype-filename {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--cd-mono);
+  font-size: 11px;
+  color: var(--cd-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
+}
+
+.cd-vpype-filename.is-empty { color: var(--cd-text-faint); direction: ltr; }
+
+.cd-vpype-layers {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.cd-vpype-layer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  background: var(--cd-panel-alt);
+  border: 1px solid var(--cd-border);
+  border-radius: 4px;
+  font-family: var(--cd-mono);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.cd-vpype-layer input { accent-color: var(--cd-accent); cursor: pointer; }
+.cd-vpype-layer.is-off { opacity: 0.45; }
+
+.cd-vpype-layer-lid {
+  color: var(--cd-text-faint);
+  flex-shrink: 0;
+  min-width: 14px;
+}
+
+.cd-vpype-layer-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Buttons ----------------------------------------------------------------- */
+
+.cd-vpype-mini {
+  font-family: var(--cd-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  padding: 5px 10px;
+  border: 1px solid var(--cd-border-strong);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--cd-text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.cd-vpype-mini:hover { background: var(--cd-panel-alt); color: var(--cd-text); }
+
+.cd-vpype-mini-accent { color: var(--cd-accent); }
+.cd-vpype-mini-accent:hover { background: var(--cd-accent-soft); }
+
+.cd-vpype-run {
+  font-family: var(--cd-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 8px 18px;
+  border: none;
+  border-radius: 4px;
+  background: var(--pc-primary, #FF6A00);
+  color: #fff;
+  cursor: pointer;
+}
+
+.cd-vpype-run:disabled {
+  background: var(--cd-border);
+  color: var(--cd-text-faint);
+  cursor: not-allowed;
+}
+
+/* Command, log, results --------------------------------------------------- */
+
+.cd-vpype-command {
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  max-height: 130px;
+  overflow: auto;
+  background: var(--cd-panel);
+  border: 1px solid var(--cd-border);
+  border-radius: 4px;
+  font-family: var(--cd-mono);
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--cd-text-muted);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.cd-vpype-command.is-error { color: var(--cd-bad); }
+
+.cd-vpype-log {
+  flex: 1;
+  min-height: 60px;
+  overflow-y: auto;
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: var(--cd-panel);
+  border: 1px solid var(--cd-border);
+  border-radius: 4px;
+  font-family: var(--cd-mono);
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--cd-text-muted);
+  white-space: pre-wrap;
+}
+
+.cd-vpype-log .is-err { color: var(--cd-bad); }
+
+.cd-vpype-results {
+  margin-top: 8px;
+  flex-shrink: 0;
+  max-height: 190px;
+  overflow-y: auto;
+}
+
+.cd-vpype-result {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  margin-top: 4px;
+  background: var(--cd-panel);
+  border: 1px solid var(--cd-border);
+  border-radius: 4px;
+  font-family: var(--cd-mono);
+  font-size: 10px;
+}
+
+.cd-vpype-result-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+}
+
+.cd-vpype-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0 12px;
+  border-top: 1px solid var(--cd-border);
+  flex-shrink: 0;
+}
+
+.cd-vpype-foot-actions { display: flex; align-items: center; gap: 8px; }
+
+.cd-vpype-status {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--cd-mono);
+  font-size: 10px;
+  color: var(--cd-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cd-vpype-status.is-bad { color: var(--cd-bad); }
+.cd-vpype-status.is-good { color: var(--cd-good); }
+
+/* Setup card -------------------------------------------------------------- */
+
+.cd-vpype-setup {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--cd-accent-soft);
+  border: 1px solid var(--cd-accent-dim);
+  border-radius: 5px;
+}
+
+.cd-vpype-setup-title {
+  font-family: var(--cd-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--cd-text);
+  margin-bottom: 6px;
+}
+
+.cd-vpype-setup-body {
+  font-family: var(--cd-mono);
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--cd-text-muted);
+}
+
+.cd-vpype-setup-cmd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+  padding: 6px 8px;
+  background: var(--cd-panel);
+  border: 1px solid var(--cd-border);
+  border-radius: 4px;
+}
+
+.cd-vpype-setup-cmd code {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--cd-mono);
+  font-size: 10px;
+  color: var(--cd-text);
+  overflow-x: auto;
+  white-space: nowrap;
+}

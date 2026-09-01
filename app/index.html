@@ -654,12 +654,13 @@
             </div>
             <div class="cd-tabs-nav">
               <div class="cd-tab cd-tab-active" id="cdTabMachine">MACHINE CONTROL</div>
+              <div class="cd-tab" id="cdTabVpype">SVG</div>
               <div class="cd-tab" id="cdTabTroubleshooting">SETTINGS</div>
             </div>
             <div class="cd-topbar-file">
               <span id="cdFileName" style="display:none;font-family:var(--cd-mono);font-size:11px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></span>
               <button id="cdFileUnload" style="display:none;" class="cd-file-unload-btn">UNLOAD</button>
-              <button id="cdFileOpen" class="cd-open-btn">+ OPEN G-CODE</button>
+              <button id="cdFileOpen" class="cd-open-btn">+ OPEN</button>
             </div>
             <div class="cd-topbar-conn">
               <span id="cdConnDot" class="cd-conn-dot"></span>
@@ -756,6 +757,215 @@
               </div>
             </nav>
             <div class="cd-set-content" id="cdSetContent"><!-- panels injected by settings.js --></div>
+          </div>
+
+          <!-- SVG view — third tab. A view, not an overlay: choosing an SVG
+               is a workflow of its own, and the generated file hands straight
+               over to MACHINE CONTROL. -->
+          <div id="cd-vpype-layout" style="display:none;">
+
+            <!-- LEFT: the settings that build the vpype command -->
+            <div class="cd-vpype-form" id="cd-vpype-form">
+
+              <!-- Shown only when vpype is missing or incomplete. -->
+              <div id="cd-vpype-setup" class="cd-vpype-setup" style="display:none;">
+                <div class="cd-vpype-setup-title" id="cdVpypeSetupTitle">vpype is not ready</div>
+                <div class="cd-vpype-setup-body" id="cdVpypeSetupBody"></div>
+                <div class="cd-vpype-setup-cmd" id="cdVpypeSetupCmdWrap" style="display:none;">
+                  <code id="cdVpypeSetupCmd"></code>
+                  <button id="cdVpypeSetupCopy" class="cd-vpype-mini" type="button">COPY</button>
+                </div>
+                <button id="cdVpypeRecheck" class="cd-vpype-mini" type="button">RE-CHECK</button>
+              </div>
+
+              <div id="cd-vpype-fields">
+
+              <!-- Source ------------------------------------------------- -->
+              <div class="cd-vpype-section">
+                <div class="cd-section-title"><span class="cd-dot"></span> SOURCE</div>
+                <div class="cd-vpype-file">
+                  <span id="cdVpypeFileName" class="cd-vpype-filename">No SVG selected</span>
+                  <button id="cdVpypePick" class="cd-vpype-mini cd-vpype-mini-accent" type="button">CHOOSE SVG</button>
+                </div>
+                <div id="cd-vpype-layers" class="cd-vpype-layers"></div>
+                <div id="cd-vpype-layers-empty" class="cd-vpype-hint" style="display:none;">
+                  No named layers &mdash; the whole drawing is exported as one.
+                </div>
+              </div>
+
+              <!-- Mode --------------------------------------------------- -->
+              <div class="cd-vpype-section">
+                <div class="cd-section-title"><span class="cd-dot"></span> MODE</div>
+                <div class="cd-vpype-row">
+                  <label class="cd-vpype-label">Output</label>
+                  <div class="cd-vpype-seg" data-field="mode">
+                    <button class="cd-mode-btn is-active" data-value="standard" type="button">PEN</button>
+                    <button class="cd-mode-btn" data-value="brush" type="button">BRUSH</button>
+                  </div>
+                </div>
+                <!-- Standard only: in brush mode pen_type reaches the filename but
+                     not the gcode, so offering it there would read as a choice
+                     that changes the output. -->
+                <div class="cd-vpype-row" data-only="standard">
+                  <label class="cd-vpype-label">Pen</label>
+                  <div class="cd-vpype-seg" data-field="pen_type">
+                    <button class="cd-mode-btn is-active" data-value="pump" type="button">PUMP</button>
+                    <button class="cd-mode-btn" data-value="parallel" type="button">PARALLEL</button>
+                    <button class="cd-mode-btn" data-value="ecoline" type="button">ECOLINE</button>
+                  </div>
+                </div>
+                <div class="cd-vpype-row" data-only="standard">
+                  <label class="cd-vpype-label">Files</label>
+                  <div class="cd-vpype-seg" data-field="split_layers">
+                    <button class="cd-mode-btn is-active" data-value="false" type="button">ONE FILE</button>
+                    <button class="cd-mode-btn" data-value="true" type="button">PER LAYER</button>
+                  </div>
+                </div>
+                <div class="cd-vpype-hint" data-only="brush">
+                  Brush merges every layer into one file.
+                </div>
+              </div>
+
+              <!-- Path optimisation -------------------------------------- -->
+              <div class="cd-vpype-section">
+                <div class="cd-section-title"><span class="cd-dot"></span> PATHS</div>
+                <div class="cd-vpype-checks">
+                  <label class="cd-vpype-check"><input type="checkbox" data-field="linesort" checked> <span>Sort (shortest travel)</span></label>
+                  <label class="cd-vpype-check"><input type="checkbox" data-field="merge"> <span>Merge touching lines</span></label>
+                  <label class="cd-vpype-check"><input type="checkbox" data-field="flip"> <span>Allow reversing lines</span></label>
+                  <label class="cd-vpype-check"><input type="checkbox" data-field="reverse"> <span>Reverse draw order</span></label>
+                </div>
+                <div class="cd-vpype-row">
+                  <label class="cd-vpype-label">Simplify</label>
+                  <div class="cd-vpype-field"><input type="number" step="0.01" data-field="simplify_tolerance"><span class="cd-vpype-unit">mm</span></div>
+                </div>
+                <div class="cd-vpype-row">
+                  <label class="cd-vpype-label">Feedrate</label>
+                  <div class="cd-vpype-field"><input type="number" step="100" data-field="xy_feedrate"><span class="cd-vpype-unit">mm/min</span></div>
+                </div>
+              </div>
+
+              <!-- Pen heights -------------------------------------------- -->
+              <div class="cd-vpype-section" data-only="standard">
+                <div class="cd-section-title"><span class="cd-dot"></span> PEN HEIGHTS</div>
+                <div class="cd-vpype-hint" id="cdVpypeZSync">Shared with the jog panel.</div>
+                <div class="cd-vpype-row">
+                  <label class="cd-vpype-label">Up</label>
+                  <div class="cd-vpype-field"><input type="number" step="0.5" data-field="z_up"><span class="cd-vpype-unit">mm</span></div>
+                </div>
+                <div class="cd-vpype-row">
+                  <label class="cd-vpype-label">Down</label>
+                  <div class="cd-vpype-field"><input type="number" step="0.5" data-field="z_down"><span class="cd-vpype-unit">mm</span></div>
+                </div>
+                <div class="cd-vpype-row" data-pen="pump">
+                  <label class="cd-vpype-label">Pump</label>
+                  <div class="cd-vpype-field"><input type="number" step="0.5" data-field="z_pump"><span class="cd-vpype-unit">mm</span></div>
+                </div>
+                <div class="cd-vpype-row" data-pen="pump">
+                  <label class="cd-vpype-label">Dwell</label>
+                  <div class="cd-vpype-field"><input type="number" step="0.05" data-field="pump_dwell"><span class="cd-vpype-unit">s</span></div>
+                </div>
+                <div class="cd-vpype-checks" data-pen="pump">
+                  <label class="cd-vpype-check"><input type="checkbox" data-field="enable_pump_interval"> <span>Re-pump on long strokes</span></label>
+                </div>
+                <div class="cd-vpype-row" data-pen="pump" data-needs="enable_pump_interval">
+                  <label class="cd-vpype-label">Every</label>
+                  <div class="cd-vpype-field"><input type="number" step="10" data-field="pump_interval"><span class="cd-vpype-unit">mm</span></div>
+                </div>
+              </div>
+
+              <!-- Brush -------------------------------------------------- -->
+              <div class="cd-vpype-section" data-only="brush">
+                <div class="cd-section-title"><span class="cd-dot"></span> BRUSH</div>
+                <div class="cd-vpype-row">
+                  <label class="cd-vpype-label">Pressure</label>
+                  <div class="cd-vpype-seg" data-field="z_mode">
+                    <button class="cd-mode-btn is-active" data-value="position" type="button">DISTANCE</button>
+                    <button class="cd-mode-btn" data-value="layer_color" type="button">COLOUR</button>
+                    <button class="cd-mode-btn" data-value="svg_spatial" type="button">SVG Z</button>
+                  </div>
+                </div>
+                <div class="cd-vpype-row">
+                  <label class="cd-vpype-label">Up</label>
+                  <div class="cd-vpype-field"><input type="number" step="0.5" data-field="brush_z_up"><span class="cd-vpype-unit">mm</span></div>
+                </div>
+                <div class="cd-vpype-row">
+                  <label class="cd-vpype-label">Down</label>
+                  <div class="cd-vpype-field"><input type="number" step="0.5" data-field="brush_z_down"><span class="cd-vpype-unit">mm</span></div>
+                </div>
+                <div class="cd-vpype-row">
+                  <label class="cd-vpype-label">Merge tol.</label>
+                  <div class="cd-vpype-field"><input type="number" step="0.1" data-field="brush_merge_tolerance"><span class="cd-vpype-unit">mm</span></div>
+                </div>
+                <div class="cd-vpype-row" data-zmode="position layer_color">
+                  <label class="cd-vpype-label">Press over</label>
+                  <div class="cd-vpype-field"><input type="number" step="1" data-field="press_distance"><span class="cd-vpype-unit">mm</span></div>
+                </div>
+                <div class="cd-vpype-row" data-zmode="position layer_color">
+                  <label class="cd-vpype-label">Lift over</label>
+                  <div class="cd-vpype-field"><input type="number" step="1" data-field="lift_distance"><span class="cd-vpype-unit">mm</span></div>
+                </div>
+                <div class="cd-vpype-row" data-zmode="svg_spatial">
+                  <label class="cd-vpype-label">Travel Z</label>
+                  <div class="cd-vpype-field"><input type="number" step="0.5" data-field="z_travel"><span class="cd-vpype-unit">mm</span></div>
+                </div>
+                <div class="cd-vpype-row" data-zmode="svg_spatial">
+                  <label class="cd-vpype-label">Smooth</label>
+                  <div class="cd-vpype-field"><input type="number" step="0.5" data-field="z_smooth_distance"><span class="cd-vpype-unit">mm</span></div>
+                </div>
+              </div>
+
+              <!-- Refill / wipe ------------------------------------------ -->
+              <div class="cd-vpype-section" data-only="brush">
+                <div class="cd-section-title"><span class="cd-dot"></span> REFILL</div>
+                <div class="cd-vpype-checks">
+                  <label class="cd-vpype-check"><input type="checkbox" data-field="enable_refill"> <span>Return to a refill station</span></label>
+                </div>
+                <div class="cd-vpype-grid" data-needs="enable_refill">
+                  <div class="cd-vpype-row"><label class="cd-vpype-label">X</label><div class="cd-vpype-field"><input type="number" data-field="refill_x"></div></div>
+                  <div class="cd-vpype-row"><label class="cd-vpype-label">Y</label><div class="cd-vpype-field"><input type="number" data-field="refill_y"></div></div>
+                  <div class="cd-vpype-row"><label class="cd-vpype-label">Z</label><div class="cd-vpype-field"><input type="number" data-field="refill_z"></div></div>
+                  <div class="cd-vpype-row"><label class="cd-vpype-label">Every</label><div class="cd-vpype-field"><input type="number" data-field="refill_interval"><span class="cd-vpype-unit">mm</span></div></div>
+                  <div class="cd-vpype-row"><label class="cd-vpype-label">Dwell</label><div class="cd-vpype-field"><input type="number" step="0.5" data-field="refill_dwell"><span class="cd-vpype-unit">s</span></div></div>
+                </div>
+                <div class="cd-vpype-checks" data-needs="enable_refill">
+                  <label class="cd-vpype-check"><input type="checkbox" data-field="enable_wipe"> <span>Wipe after refill</span></label>
+                </div>
+                <div class="cd-vpype-grid" data-needs="enable_refill enable_wipe">
+                  <div class="cd-vpype-row"><label class="cd-vpype-label">X1</label><div class="cd-vpype-field"><input type="number" data-field="wipe_x1"></div></div>
+                  <div class="cd-vpype-row"><label class="cd-vpype-label">Y1</label><div class="cd-vpype-field"><input type="number" data-field="wipe_y1"></div></div>
+                  <div class="cd-vpype-row"><label class="cd-vpype-label">X2</label><div class="cd-vpype-field"><input type="number" data-field="wipe_x2"></div></div>
+                  <div class="cd-vpype-row"><label class="cd-vpype-label">Y2</label><div class="cd-vpype-field"><input type="number" data-field="wipe_y2"></div></div>
+                  <div class="cd-vpype-row"><label class="cd-vpype-label">Z</label><div class="cd-vpype-field"><input type="number" data-field="wipe_z"></div></div>
+                  <div class="cd-vpype-row"><label class="cd-vpype-label">Passes</label><div class="cd-vpype-field"><input type="number" data-field="wipe_passes"></div></div>
+                </div>
+              </div>
+              </div>
+            </div>
+
+            <!-- RIGHT: what vpype will do, what it did, and what came out -->
+            <div class="cd-vpype-out">
+
+              <div class="cd-vpype-out-block">
+                <div class="cd-section-title"><span class="cd-dot"></span> COMMAND</div>
+                <pre id="cd-vpype-command" class="cd-vpype-command"></pre>
+              </div>
+
+              <div class="cd-vpype-out-block cd-vpype-out-grow">
+                <div class="cd-section-title"><span class="cd-dot"></span> OUTPUT</div>
+                <div id="cd-vpype-log" class="cd-vpype-log"></div>
+                <div id="cd-vpype-results" class="cd-vpype-results" style="display:none;"></div>
+              </div>
+
+              <div class="cd-vpype-foot">
+                <div id="cd-vpype-status" class="cd-vpype-status"></div>
+                <div class="cd-vpype-foot-actions">
+                  <button id="cdVpypeCancel" class="cd-vpype-mini" type="button" style="display:none;">CANCEL</button>
+                  <button id="cdVpypeRun" class="cd-vpype-run" type="button" disabled>GENERATE</button>
+                </div>
+              </div>
+
+            </div>
           </div>
 
           <!-- Main 3-column body -->
@@ -2107,6 +2317,8 @@
       <!-- End Saving Grbl Parameters Progress -->
 
     </div>
+
+
   </body>
 
   <script type="x-shader/x-vertex" id="vertexShader">
@@ -2205,6 +2417,8 @@
   <script type="text/javascript" src="js/restart-from-point.js"></script>
   <script type="text/javascript" src="js/plot-photo.js"></script>
   <script type="text/javascript" src="js/stroke-select.js"></script>
+  <script type="text/javascript" src="js/stroke-svg.js"></script>
+  <script type="text/javascript" src="js/vpype-panel.js"></script>
 
   <script type="text/javascript" src="js/toolchange.js"></script>
 

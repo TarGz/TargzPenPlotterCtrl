@@ -2,6 +2,21 @@ module.exports = {
   version: require('./package.json').version,
   CHANGELOG: [
     {
+      date: '2026-09-01',
+      version: '1.30.0',
+      changes: [
+        'SVG to G-code now happens inside this app. The vpype pipeline that lived in the separate Vpype Studio tool is copied in — command building, the gwrite motor profile, the pump-interval post-pass — and runs in the main process. Generating and plotting stop being two apps with a file handed between them.',
+        'Top bar is MACHINE CONTROL | SVG | SETTINGS, and there is one OPEN button instead of two. The file decides the view: an SVG opens the SVG tab, a G-code loads into the machine view. A generated file hands straight over with LOAD.',
+        'The SVG view carries the settings that build the command (source and layers, pen or brush, path optimisation, pen heights, brush pressure and refill), the live vpype command, the run log, and the files it produced. Pen heights read from the same place the jog buttons do, so the two cannot disagree, and settings restore from the vpype_last_run.json sitting next to the SVG.',
+        'Servo mode is dropped. Its gwrite profile has no Z-15 / Z-30 / Z-32 or P0.500 for the templating to substitute, so the Z and dwell fields did nothing when it was selected, and its XY feedrate also rewrote Z feedrates. Four controls that lied are worth less than none.',
+        'Fix — brush Z never reached vpype. buildBrush read cfg.z_up / cfg.z_down and used brush_z_up / brush_z_down only as a fallback, so the separate brush height fields were inert. The brush keys now win, falling back to the pen heights.',
+        'Fix — brush with per-layer output wrote a single file named split. Brush always collapses to one layer, so the request is now normalised and the filename matches what was actually written.',
+        'Brush reads its gwrite config from a rendered temp file rather than the checked-in path, which a child process cannot read from inside a packaged app.',
+        'One table-driven view switcher replaces the pair of functions that each hid the other by hand — with a third tab that was six statements to keep in step.',
+        'Groundwork for reprocessing an edit through vpype: a selection can be written out as SVG, mirroring the existing G-code writer over the same stroke geometry. Coordinates survive the round trip because the page height is declared to cancel gwrite vertical_flip — measured at 0.0002 mm worst deviation over 12,375 points. Not yet wired to a button.'
+      ]
+    },
+    {
       date: '2026-08-30',
       version: '1.29.0',
       changes: [

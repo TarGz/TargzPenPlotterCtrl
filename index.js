@@ -569,6 +569,10 @@ var PortCheckinterval = setInterval(function() {
 
 checkPowerSettings()
 
+// vpype: SVG -> gcode, in-process. Routes under /api/vpype/*, run progress on
+// the socket as 'vpype:*'.
+require('./vpype/api.js').mountVpypeApi(app, express, io);
+
 // JSON API
 app.get('/api/version', (req, res) => {
   res.header("Access-Control-Allow-Origin", "*");
@@ -734,19 +738,32 @@ io.on("connection", function(socket) {
 
   socket.on("openFile", function(data) {
     dialog.showOpenDialog(jogWindow, {
-      properties: ['openFile']
+      properties: ['openFile'],
+      filters: [
+        { name: 'Plottable', extensions: ['svg', 'gcode', 'gc', 'nc', 'ngc', 'tap', 'cnc', 'txt', 'obc'] },
+        { name: 'SVG', extensions: ['svg'] },
+        { name: 'G-code', extensions: ['gcode', 'gc', 'nc', 'ngc', 'tap', 'cnc', 'txt'] }
+      ]
     }).then(result => {
-      console.log(result.canceled)
-      console.log(result.filePaths)
+      if (result.canceled || !result.filePaths.length) return;
       var openFilePath = result.filePaths[0];
-      if (openFilePath !== "") {
-        debug_log("path" + openFilePath);
+      debug_log("path" + openFilePath);
+      // The file kind picks the view: an SVG still has to be converted, so it
+      // opens in the SVG tab rather than being fed to the G-code viewer.
+      if (openFilePath.toLowerCase().endsWith('.svg')) {
+        socket.emit("vpypeSvgPicked", openFilePath);
+      } else {
         readFile(openFilePath);
       }
-
     }).catch(err => {
       console.log(err)
     })
+  })
+
+  // A generated gcode goes back through readFile(), so it arrives on the same
+  // 'gcodeupload' path as File > Open and the viewer refreshes as it always does.
+  socket.on("vpypeLoadGcode", function(filePath) {
+    if (typeof filePath === 'string' && filePath.length) readFile(filePath);
   })
 
   socket.on("openInterfaceDir", function(data) {
