@@ -1118,7 +1118,6 @@
 
                         <button id="cdStrokeRangeReset" class="cd-range-reset" type="button">↺ CLEAR RANGE</button>
                       </div>
-                        <div id="cdToolHint" class="cd-opt-hint"></div>
                       </div>
 
                       <div id="cd-stroke-cursor" class="cd-stroke-cursor"></div>
@@ -1136,7 +1135,7 @@
                         <span id="cdStrokeCount" class="cd-stroke-count">0 of 0 strokes</span>
                         <span id="cdStrokeLen" class="cd-stroke-len">0.00 m</span>
                         <span class="cd-stroke-spacer"></span>
-                        <button id="cdStrokePumpBtn" type="button" title="How this layer primes the pen">PUMP: OFF</button>
+                        <button id="cdStrokePumpBtn" type="button" title="How this version primes the pen">PUMP: OFF</button>
                         <span class="cd-stroke-spacer"></span>
                         <button id="cdStrokeAll" type="button">ALL</button>
                         <button id="cdStrokeNone" type="button">NONE</button>
@@ -1225,50 +1224,16 @@
                 </div>
               </div>
 
-              <!-- Layers: MAIN is the whole file and cannot be edited
-                   or deleted; the rest are named bunches of strokes. -->
-              <div id="cd-layer-panel" class="cd-layer-panel" style="display:none;">
-                <div class="cd-layer-head">
-                  <span>PLOT TARGET</span>
-                  <button id="cdLayerDone" class="cd-layer-done" type="button">DONE</button>
-                </div>
-                <div class="cd-layer-caption">Tick what START will draw. EDIT changes which strokes a layer holds.</div>
-                <div id="cd-layer-list" class="cd-layer-list"></div>
-                <div id="cd-layer-empty" class="cd-layer-empty" style="display:none;">
-                  No layers yet &mdash; START draws the whole file. A layer is a set of
-                  strokes you can plot on its own: one pen, one colour, one pass.
-                </div>
-                <button id="cdLayerAdd" class="cd-layer-add" type="button">+ NEW EDIT</button>
-              </div>
-
-
-              <!-- Bottom bloc: Run controls + Edit Start + Scrub panel
-                   (always visible, pinned bottom; scrub panel expands below
-                   the Edit Start button when opened) -->
+              <!-- One panel. The version list IS the plot target: the ticked
+                   row is what START draws, so a separate readout could only
+                   repeat it. MAIN is the whole file and cannot be edited or
+                   deleted; + NEW VERSION forks one and opens it. -->
               <div id="cd-run-controls" class="cd-panel-section cd-run-section cd-run-bottom">
                 <div class="cd-section-title"><span class="cd-dot"></span> RUN</div>
 
-                <label class="cd-set-toggle-row" id="cdParkToggleRow" style="padding:6px 2px;">
-                  <button type="button" class="cd-set-toggle" id="cdParkToggle"></button>
-                  <div class="cd-set-toggle-text">
-                    <div class="cd-set-toggle-label">PARK AT END</div>
-                    <div class="cd-set-toggle-hint">Move to parking position when the job finishes · Settings › PARKING</div>
-                  </div>
-                </label>
-
-                <!-- What START will actually plot. Only shown once a part
-                     exists — without it there is no way to tell whether the
-                     next job is the whole file or a saved subset. -->
-                <!-- The single answer to "what will START draw". CHANGE opens the
-                     layer list; DONE there closes it and comes back here. -->
                 <div id="cd-plot-target" class="cd-plot-target" style="display:none;">
-                  <div class="cd-plot-target-head">
-                    <span class="cd-plot-target-title">PLOT TARGET</span>
-                    <button id="cdPlotTargetEdit" class="cd-plot-target-edit" type="button">EDIT</button>
-                  </div>
-                  <div class="cd-pt-row"><span class="cd-pt-key">FILE</span><span id="cdPlotTargetFile" class="cd-pt-val"></span></div>
-                  <div class="cd-pt-row"><span class="cd-pt-key">LAYER</span><span id="cdPlotTargetName" class="cd-pt-val is-layer">Whole file</span></div>
-                  <div class="cd-pt-row"><span class="cd-pt-key">LENGTH</span><span id="cdPlotTargetMeta" class="cd-pt-val"></span></div>
+                  <div id="cd-layer-list" class="cd-layer-list"></div>
+                  <button id="cdLayerAdd" class="cd-layer-add" type="button">+ NEW VERSION</button>
                 </div>
 
                 <div id="cdRunIdle">
@@ -1286,6 +1251,11 @@
                     <button id="cdAbortBtn" class="cd-btn-abort">⊗ ABORT</button>
                   </div>
                 </div>
+
+                <label class="cd-park-row" id="cdParkToggleRow" title="Move to the parking position when the job finishes. Position: Settings &rsaquo; PARKING">
+                  <button type="button" class="cd-set-toggle" id="cdParkToggle"></button>
+                  <span class="cd-park-label">PARK AT END</span>
+                </label>
 
                 <!-- EDIT GCODE retired in 1.19.0: the START / END range is now
                      the Range tool in the 3D view's EDIT palette, which builds a

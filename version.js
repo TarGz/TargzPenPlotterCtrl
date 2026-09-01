@@ -2,6 +2,22 @@ module.exports = {
   version: require('./package.json').version,
   CHANGELOG: [
     {
+      date: '2026-09-01',
+      version: '1.31.0',
+      changes: [
+        'An edit is now a VERSION, not a layer. It was never a layer in the drawing sense — it is a saved answer to "what should this run draw", and the word kept implying the other thing.',
+        'The version list and the RUN panel are one panel. They sat stacked and stated the same thing twice: the list already says which version is chosen, so the PLOT TARGET readout beneath it could only repeat the list back. Gone with it: the duplicate PLOT TARGET heading, the filename (the top bar carries it), and the panel\'s own DONE button.',
+        'One DONE on screen at a time. The list is a chooser, not a mode, so it has no DONE of its own and it steps aside while you are editing — the edit bar owns the only way out.',
+        'The row is the choice. Tick boxes, then SELECT buttons, then an EDIT button all came and went from the rows; each was a second target for something clicking the row already did. Rows carry a name and one number, and ⋯ holds edit, rename and delete.',
+        'The chosen version reads as the decision it is: bigger, tinted, and a second line spelling out what will be drawn — including "no strokes yet, nothing would be drawn" for an empty one, which used to say a grey "empty" in the middle of a list and stop nobody before START.',
+        'MAIN cannot be edited or deleted. It is the file as it arrived; + NEW VERSION forks one and opens it.',
+        'One painter for the toolpath. The editor, a chosen version and the whole file were three functions that had drifted into three different looks — they are now one call differing in which strokes are picked out. Travel moves stay visible everywhere except the editor, where they are lines drawn across the picture you are aiming at.',
+        'The selection cursors say what a click will do: a + or a − beside the pointer, following the effective mode so holding Alt flips it live. PICK draws its own crosshair and lights orange only when a click would actually change the selection — in Unselect that means only over strokes already selected.',
+        'PARK AT END is one line under the run buttons instead of a settings-style row with a paragraph under it.',
+        'Removed the explanatory copy from the layer panel, its empty state and the tool hints.'
+      ]
+    },
+    {
       date: '2026-08-30',
       version: '1.29.0',
       changes: [

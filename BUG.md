@@ -11,3 +11,5 @@
 - when loading a new file neither 
 
 
+## Fresh reload shows the previously loaded file
+- reloading the window brings back the last file and its saved layer edit; a fresh window should be empty

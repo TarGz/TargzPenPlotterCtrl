@@ -1693,114 +1693,13 @@
 /* ─── Layer panel ─────────────────────────────────────────────────────────── */
 /* Docked in the right sidebar above RUN, not floating over the canvas: it is
    always relevant (it decides what plots) and it was covering the drawing. */
-.cd-layer-panel {
-  position: relative;
-  flex-shrink: 0;
-  padding: 10px 14px 12px;
-  background: var(--cd-panel);
-  border-bottom: 1px solid var(--cd-border);
-}
-
-.cd-layer-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  font-family: var(--cd-mono);
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  color: var(--cd-text-muted);
-  margin-bottom: 6px;
-}
-
 /* The panel has to say what it is for: nothing else on screen names the stroke
    editor, so a month later the pencil is just an icon you no longer recognise. */
 /* Labelled rows: FILE / LAYER / LENGTH. This is the last thing read before
    pressing START, so it states all three rather than running them together. */
-.cd-pt-row {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin-top: 3px;
-  font-family: var(--cd-mono);
-  font-size: 10px;
-}
-
-.cd-pt-key {
-  flex: 0 0 46px;
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  color: var(--cd-text-muted);
-}
-
-.cd-pt-val {
-  flex: 1;
-  min-width: 0;
-  color: var(--cd-text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.cd-pt-val.is-layer {
-  color: var(--pc-primary, #FF6A00);
-  font-size: 12px;
-}
-
 .cd-plot-target-edit,
-.cd-layer-done {
-  padding: 3px 9px;
-  border: 1px solid var(--cd-border);
-  border-radius: 4px;
-  background: transparent;
-  font-family: var(--cd-mono);
-  font-size: 9px;
-  letter-spacing: 0.06em;
-  color: var(--cd-text-muted);
-  cursor: pointer;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
-}
-
-.cd-layer-done:hover {
-  color: var(--pc-primary, #FF6A00);
-  border-color: var(--pc-primary, #FF6A00);
-  background: rgba(255, 106, 0, 0.08);
-}
-
 /* Orange: it is the way into the editor and should read as an action, not as
    a label sitting next to the title. */
-.cd-plot-target-edit {
-  border-color: var(--pc-primary, #FF6A00);
-  background: var(--pc-primary, #FF6A00);
-  color: #fff;
-  padding: 4px 12px;
-}
-
-.cd-plot-target-edit:hover { color: #fff; filter: brightness(1.08); }
-
-.cd-layer-done {
-  border-color: var(--pc-primary, #FF6A00);
-  background: var(--pc-primary, #FF6A00);
-  color: #fff;
-}
-
-.cd-layer-done:hover { color: #fff; filter: brightness(1.08); }
-
-.cd-layer-caption {
-  font-family: var(--cd-mono);
-  font-size: 9px;
-  line-height: 1.5;
-  color: var(--cd-text-muted);
-  margin-bottom: 8px;
-}
-
-.cd-layer-empty {
-  padding: 8px 6px 2px;
-  font-family: var(--cd-mono);
-  font-size: 9px;
-  line-height: 1.55;
-  color: var(--cd-text-faint, var(--cd-text-muted));
-}
-
 /* A tick box, not a play button: it marks what will plot rather than starting
    anything. Still exclusive — one plot target at a time — hence role=radio. */
 .cd-layer-plot {
@@ -1846,13 +1745,12 @@
    second. One line at 260px left the name about 80px, which ellipsised
    anything longer than "Outline". */
 .cd-layer-row {
-  display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) auto;
-  align-items: center;
-  column-gap: 7px;
-  row-gap: 2px;
-  padding: 6px;
-  min-height: 44px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 5px 6px;
+  min-height: 34px;
+  justify-content: center;
   border: 1px solid transparent;
   border-left: 3px solid transparent;
   border-radius: 4px;
@@ -1939,15 +1837,6 @@
   background: transparent;
 }
 
-.cd-layer-line {
-  grid-column: 2 / 4;
-  grid-row: 1;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
 .cd-layer-name {
   flex: 1;
   min-width: 0;
@@ -1976,37 +1865,6 @@
 }
 
 /* Worded, not a bare pencil: this is the only door into the stroke editor. */
-.cd-layer-edit {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  height: 26px;
-  padding: 0 7px;
-  border: 1px solid var(--cd-border);
-  border-radius: 4px;
-  background: transparent;
-  font-family: var(--cd-mono);
-  font-size: 9px;
-  letter-spacing: 0.06em;
-  line-height: 1;
-  color: var(--cd-text-muted);
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
-}
-
-.cd-layer-edit i { font-size: 10px; }
-
-.cd-layer-edit:hover {
-  color: var(--pc-primary, #FF6A00);
-  border-color: var(--pc-primary, #FF6A00);
-  background: rgba(255, 106, 0, 0.08);
-}
-
-.cd-layer-edit:focus-visible {
-  outline: 2px solid var(--pc-primary, #FF6A00);
-  outline-offset: 1px;
-}
-
 .cd-layer-btn {
   flex: 0 0 26px;
   width: 26px;
@@ -2034,12 +1892,6 @@
 .cd-layer-btn:focus-visible {
   outline: 2px solid var(--pc-primary, #FF6A00);
   outline-offset: 1px;
-}
-
-.cd-layer-edit.is-on {
-  color: #fff;
-  background: var(--pc-primary, #FF6A00);
-  border-color: var(--pc-primary, #FF6A00);
 }
 
 /* Rename + delete behind one overflow, so the row has room for EDIT. */
@@ -2074,11 +1926,6 @@
 
 .cd-layer-menu button:hover { background: rgba(0, 0, 0, 0.06); }
 .cd-layer-menu button.is-danger:hover { background: rgba(220, 53, 69, 0.12); color: #dc3545; }
-
-.cd-layer-edit.is-on:hover {
-  color: #fff;
-  background: var(--pc-primary, #FF6A00);
-}
 
 .cd-layer-add {
   width: 100%;
@@ -2120,45 +1967,8 @@
   margin-bottom: 8px;
 }
 
-.cd-plot-target-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 6px;
-}
-
-.cd-plot-target-title {
-  font-family: var(--cd-mono);
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  color: var(--cd-text-muted);
-}
-
-#cdPlotTargetClear {
-  background: transparent;
-  border: none;
-  padding: 2px 4px;
-  font-family: var(--cd-mono);
-  font-size: 9px;
-  color: var(--cd-text-muted);
-  cursor: pointer;
-}
-
-#cdPlotTargetClear:hover { color: var(--pc-primary, #FF6A00); }
-
 /* file › layer on its own full-width line — it used to share the head row at
    max-width 60%, which ellipsised the name that says what will be drawn. */
-.cd-plot-target-name {
-  display: block;
-  margin-top: 2px;
-  font-family: var(--cd-mono);
-  font-size: 11px;
-  color: var(--pc-primary, #FF6A00);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .cd-plot-target-file {
   margin-top: 1px;
   font-family: var(--cd-mono);
@@ -2167,34 +1977,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.cd-plot-target-btn {
-  padding: 7px 4px;
-  border: 2px solid var(--cd-border);
-  border-radius: 4px;
-  background: transparent;
-  font-family: var(--cd-mono);
-  font-size: 10px;
-  color: var(--cd-text-muted);
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s, background 0.15s;
-}
-
-.cd-plot-target-btn:hover { color: var(--cd-text); }
-
-.cd-plot-target-btn.is-active {
-  border-color: var(--pc-primary, #FF6A00);
-  background: rgba(255, 106, 0, 0.10);
-  color: var(--pc-primary, #FF6A00);
-}
-
-.cd-plot-target-meta {
-  margin-top: 5px;
-  font-family: var(--cd-mono);
-  font-size: 9px;
-  color: var(--cd-text-muted);
-  font-variant-numeric: tabular-nums;
 }
 
 /* Toolbar chip once a part exists */
@@ -2277,15 +2059,6 @@
   letter-spacing: 0.06em;
   color: var(--cd-text-muted);
   margin-bottom: 4px;
-}
-
-.cd-opt-hint {
-  font-family: var(--cd-mono);
-  font-size: 9px;
-  line-height: 1.5;
-  color: var(--cd-text-faint, var(--cd-text-muted));
-  padding-top: 2px;
-  border-top: 1px solid var(--cd-border);
 }
 
 /* ─── Range tool panel ────────────────────────────────────────────────────── */
@@ -2592,6 +2365,67 @@
 
 .cd-stroke-cursor.is-remove {
   border-color: #141414;
+}
+
+/* PICK has no radius to show, so its cursor IS the crosshair — the system
+   arrow is hidden under it. Drawn with two gradients rather than a glyph so
+   the arms stay hairline-crisp at any zoom. */
+.cd-stroke-cursor.is-pick {
+  width: 21px;
+  height: 21px;
+  /* left/top are the pointer itself; the arms have to straddle it. */
+  transform: translate(-50%, -50%);
+  border: none;
+  border-radius: 0;
+  color: var(--cd-text-faint, #A89E87);
+  background:
+    linear-gradient(currentColor, currentColor) center / 1.5px 100% no-repeat,
+    linear-gradient(currentColor, currentColor) center / 100% 1.5px no-repeat;
+}
+
+/* A stroke is under the pointer: the cross takes the selection colour, so the
+   answer to "will this click hit anything" is at the pointer rather than in
+   the tint of a line somewhere under it. */
+.cd-stroke-cursor.is-pick.is-over {
+  color: var(--pc-primary, #FF6A00);
+}
+
+/* The sign says what a click does, at the point you are looking at. Alt
+   inverts the mode mid-drag, so reading it off the toolbar means looking away
+   from the strokes you are aiming at.
+
+   Offset up-left of the pointer, not centred: the mouse arrow sits on the
+   centre and covered it. The offset is a fixed pixel count rather than a share
+   of the radius, so it stays the same distance from the arrow whatever the
+   brush is sized to — proportional would put it under the arrow again on a
+   small brush and halfway across the drawing on a big one. */
+.cd-stroke-cursor::after {
+  content: '+';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) translate(-13px, -13px);
+  font-family: var(--cd-mono);
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--pc-primary, #FF6A00);
+  -webkit-text-stroke: 0.6px currentColor;
+  text-shadow:
+    0 0 3px var(--cd-bg, #FFFAF4),
+    0 0 3px var(--cd-bg, #FFFAF4),
+    0 0 5px var(--cd-bg, #FFFAF4);
+}
+
+.cd-stroke-cursor.is-remove::after {
+  content: '\2212';
+  color: #141414;
+}
+
+.cd-stroke-cursor.is-pick::after {
+  color: inherit;
+  transform: translate(-50%, -50%) translate(-11px, -11px);
+  font-size: 15px;
 }
 
 .cd-stroke-band {
@@ -3569,4 +3403,96 @@
 #cd-jog-section.cd-jog-disabled {
   opacity: 0.55;
   pointer-events: none;
+}
+
+/* PARK AT END — one line under the run buttons. It was a settings-style row
+   with a two-line explanation, which gave a single switch more vertical space
+   than PLOT TARGET. The explanation is on the tooltip and in Settings › PARKING. */
+.cd-park-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 0 2px;
+  cursor: pointer;
+}
+
+.cd-park-label {
+  font-family: var(--cd-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--cd-text-muted);
+}
+
+.cd-park-row:hover .cd-park-label { color: var(--cd-text); }
+
+/* Slightly smaller than the settings switch — it sits beside buttons, not in a
+   list of its own. */
+.cd-park-row .cd-set-toggle { width: 28px; height: 15px; }
+.cd-park-row .cd-set-toggle::after { width: 11px; height: 11px; }
+.cd-park-row .cd-set-toggle.on::after { left: 15px; }
+
+
+/* ─── Version row, merged into RUN ────────────────────────────────────────── */
+/* One line: swatch, name, length, SELECT, ⋯ . The two-line grid existed to fit
+   a worded EDIT button that no longer belongs here. */
+
+.cd-layer-row .cd-layer-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cd-layer-row .cd-layer-meta {
+  flex-shrink: 0;
+  color: var(--cd-text-faint);
+  font-size: 9px;
+  margin-left: auto;
+}
+
+/* The armed row states itself rather than relying on the tint alone — colour
+   is never the only indicator. */
+/* On the armed row the slot is EDIT, filled so it reads as the live action on
+   the row you have chosen. */
+
+
+/* ─── The chosen version ──────────────────────────────────────────────────── */
+/* It is the only row that decides what the machine does, so it stops looking
+   like a list item: bigger, tinted, and it states what will be drawn on a
+   second line rather than leaving one figure to stand for it. */
+
+.cd-layer-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.cd-layer-row.is-plotting {
+  padding: 10px 10px 11px;
+  background: var(--cd-accent-soft);
+  border-color: var(--cd-accent-dim);
+  border-left-color: var(--pc-primary, #FF6A00);
+}
+
+.cd-layer-row.is-plotting .cd-layer-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--cd-text);
+}
+
+.cd-layer-row.is-plotting .cd-layer-swatch {
+  width: 14px;
+  height: 14px;
+}
+
+.cd-layer-detail {
+  font-family: var(--cd-mono);
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--cd-text-muted);
+  /* Clears the swatch so it reads as a caption under the name, not a new item. */
+  padding-left: 22px;
 }
