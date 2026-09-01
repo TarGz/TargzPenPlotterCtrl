@@ -423,8 +423,22 @@ function initSocket() {
       progressbar.val(donepercent);
     }
 
+    // A version streams a CUT of the file, so the job's line number is not the
+    // file's. strokeBuildGcode publishes where each emitted line came from;
+    // without it both the editor and the resume point aim at the wrong place —
+    // 281 lines into a 55,000-line file is the top of the drawing, not the part
+    // being plotted.
+    var srcLine = function (jobLine) {
+      var map = window.strokeVersionLineMap;
+      if (!map || !map.length) return jobLine;          // MAIN: already the file's
+      var i = Math.max(0, Math.min(map.length - 1, jobLine - 1));
+      // Walk back over lines this app wrote itself (comments), which map to -1.
+      while (i > 0 && map[i] < 0) i--;
+      return map[i] >= 0 ? map[i] + 1 : jobLine;
+    };
+
     if (total > done) {
-      localStorage.setItem('gcodeLineNumber', done); //recovery line number
+      localStorage.setItem('gcodeLineNumber', srcLine(done)); //recovery line number
     }
 
     if (laststatus) {
@@ -434,7 +448,7 @@ function initSocket() {
         // line — and its handler is debounced, so the last move of a job fires
         // after the job has ended, past any is-it-running check.
         window.restartIgnoreCursorUntil = Date.now() + 2000;
-        editor.gotoLine(data[1] - data[0]);
+        editor.gotoLine(srcLine(data[1] - data[0]));
       }
       if (typeof object !== 'undefined' && done > 0) {
         if (object.userData !== 'undefined' && object.userData && object.userData.linePoints.length > 2) {

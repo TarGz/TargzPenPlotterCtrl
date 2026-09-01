@@ -3,6 +3,16 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-09-01',
+      version: '1.33.0',
+      changes: [
+        'Progress follows the file again while a version plots. A version streams a CUT of the file, so its line numbers are not the file\'s — the editor was being scrolled to line 281 of a 55,000-line file, the top of the drawing rather than the part being drawn, and the crash-recovery point was recorded there too.',
+        'strokeBuildGcode now publishes where each emitted line came from, which only a cut can answer: the generator that rebuilt strokes from geometry had no source line to point back to. MAIN is unaffected — it streams the file itself, so its numbers already matched, and the map is dropped when MAIN is armed rather than left behind.',
+        'Percentage, elapsed and remaining were always right: they come from the send queue, which counts what is actually streaming.',
+        'Shift-drag pans the 3D view, so it is navigated like the Portrait-Ribbons preview — drag rotates, shift-drag pans, wheel zooms. The first and last already worked. OrbitControls has no modifier of its own, so the button mapping is swapped in the capture phase ahead of its own mousedown handler, and restored on release anywhere in the window: a release outside the canvas would otherwise leave the next plain drag panning.'
+      ]
+    },
+    {
+      date: '2026-09-01',
       version: '1.32.0',
       changes: [
         'A version is now a CUT of the G-code file instead of a rewrite of it. The file already separates every stroke and already carries its own approach — the lift, the move across, the priming dip, the pen-down, the feedrates — so a version copies those lines out verbatim and drops the strokes it does not want.',

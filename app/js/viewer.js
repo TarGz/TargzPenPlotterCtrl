@@ -419,6 +419,29 @@ function init3D() {
       controls.enableZoom = true; // optional
       controls.maxDistance = 8000; // limit max zoom out
       controls.enableKeys = false; // Disable Keyboard on canvas
+
+      // Drag rotates, shift-drag pans, wheel zooms — the same three gestures as
+      // the Portrait-Ribbons preview, so the two views are navigated the same
+      // way. OrbitControls has no modifier of its own: it reads mouseButtons in
+      // its mousedown handler, so the mapping is swapped in the capture phase
+      // just before that runs, and put back on release.
+      var panSwap = null;
+      renderer.domElement.addEventListener('mousedown', function (e) {
+        if (!controls || panSwap) return;
+        if (!e.shiftKey || e.button !== THREE.MOUSE.LEFT) return;
+        panSwap = { ORBIT: controls.mouseButtons.ORBIT, PAN: controls.mouseButtons.PAN };
+        controls.mouseButtons.ORBIT = -1;   // matches no button
+        controls.mouseButtons.PAN = THREE.MOUSE.LEFT;
+      }, true);
+
+      // On window, not the canvas: releasing outside it must still restore the
+      // mapping, or the next plain drag would pan instead of rotating.
+      window.addEventListener('mouseup', function () {
+        if (!panSwap) return;
+        controls.mouseButtons.ORBIT = panSwap.ORBIT;
+        controls.mouseButtons.PAN = panSwap.PAN;
+        panSwap = null;
+      });
     }
 
 

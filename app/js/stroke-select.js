@@ -1324,7 +1324,9 @@ function strokePaintViewMode() {
 // Built fresh at plot time so it always uses the current pen heights.
 window.strokePartGcodeIfArmed = function () {
   var pl = strokeLayerById(strokePlotLayerId);
-  if (!pl) return null;
+  // MAIN streams the file itself, so job lines ARE source lines. Drop the map
+  // rather than leave the previous version's behind.
+  if (!pl) { window.strokeVersionLineMap = null; return null; }
   if (!strokeEnsureBuilt()) return null;
   return strokeBuildGcode(Object.keys(pl.sel).map(Number).sort(function (a, b) { return a - b; }));
 };
@@ -1362,17 +1364,30 @@ function strokeBuildGcode(keep) {
   }
 
   var out = [];
-  out.push('; === VERSION - ' + keep.length + ' of ' + strokes.length + ' strokes ===');
-  out.push('; Lines copied unchanged from ' +
+  // Where each emitted line came from, so the progress readout can point at the
+  // right place in the file. Only a cut can answer this: the generator that
+  // rebuilt strokes from geometry had no source line to point back to.
+  // -1 marks a line this function wrote itself.
+  var map = [];
+  function emit(line, srcIndex) {
+    out.push(line);
+    map.push(srcIndex === undefined ? -1 : srcIndex);
+  }
+  function emitRange(from, to) {   // [from, to)
+    for (var i = from; i < to; i++) emit(lines[i], i);
+  }
+
+  emit('; === VERSION - ' + keep.length + ' of ' + strokes.length + ' strokes ===');
+  emit('; Lines copied unchanged from ' +
     ((typeof loadedFileName !== 'undefined' && loadedFileName) ? loadedFileName : 'the source file') + '.');
-  out.push('; Same coordinates, same pen heights, same priming — so this');
-  out.push('; registers with what is already on the sheet. Do NOT re-zero.');
-  out.push('');
+  emit('; Same coordinates, same pen heights, same priming — so this');
+  emit('; registers with what is already on the sheet. Do NOT re-zero.');
+  emit('');
 
   // Everything before the first move: units, plane, absolute mode. Copied so the
   // modal state is the file's own rather than a guess about it.
   var firstMove = lineOf(0);
-  if (firstMove > 0) out.push.apply(out, lines.slice(0, firstMove));
+  if (firstMove > 0) emitRange(0, firstMove);
 
   keep.forEach(function (idx) {
     var s = strokes[idx];
@@ -1383,16 +1398,17 @@ function strokeBuildGcode(keep) {
     var prev = strokes[idx - 1];
     var from = prev ? lineOf(prev.b + 1) : firstMove;
     if (from < 0) from = s.lineA;
-    out.push.apply(out, lines.slice(from, s.lineB + 1));
+    emitRange(from, s.lineB + 1);
   });
 
   // The lift off the final stroke, so the pen does not stay down at the end.
   var last = strokes[keep[keep.length - 1]];
   if (last) {
     var lift = lineOf(last.b + 1);
-    if (lift > last.lineB) out.push.apply(out, lines.slice(last.lineB + 1, lift + 1));
+    if (lift > last.lineB) emitRange(last.lineB + 1, lift + 1);
   }
 
+  window.strokeVersionLineMap = map;
   return out.join('\n') + '\n';
 }
 
