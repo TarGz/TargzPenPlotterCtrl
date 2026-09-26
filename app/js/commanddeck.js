@@ -157,6 +157,8 @@ $(document).ready(function () {
   // Alarm banner debounce state — used by cdUpdateConnection below.
   var _lastAlarmShown = false;
   var _alarmShowTimer = null;
+  var _lastAutoUnlock = 0;
+  var _alarmText = '';
 
   // ─── Port selector: custom dropdown in CD topbar ────────────────────────
   // #cdPortSelect options are populated by populatePortsMenu() (websocket.js)
@@ -368,9 +370,13 @@ $(document).ready(function () {
     if (typeof window.cdClearInterruptedPlot === 'function') window.cdClearInterruptedPlot();
   });
 
-  // ─── Alarm unlock ────────────────────────────────────────────────────────
+  // ─── Alarm notice ────────────────────────────────────────────────────────
   $('#cdUnlockAlarm').on('click', function () {
     socket.emit('clearAlarm', 2);
+    $('#cd-alarm-banner').hide();
+  });
+  $('#cdAlarmOk').on('click', function () {
+    $('#cd-alarm-banner').hide();
   });
 
   // ─── Pause / Resume toggle ───────────────────────────────────────────────
@@ -988,6 +994,34 @@ $(document).ready(function () {
 
   // Called by setConnectBar() mirror (see websocket.js additions).
   // Updates CD top bar connection state.
+  function cdAlarmReason(alarmText) {
+    var code = parseInt(alarmText, 10);
+    if (!alarmText) return 'The controller started up locked (homing is enabled on the board).';
+    if (code === 3) return 'Stopped while moving (reset during motion).';
+    if (code === 1) return 'A limit switch was hit.';
+    if (code === 2) return 'The move went past the machine\'s soft limits.';
+    return 'Alarm ' + alarmText;
+  }
+
+  function cdHandleAlarm(alarmText) {
+    // An alarm that comes straight back (limit switch held, e-stop) would make
+    // unlocking loop, so a second one within 5 s is left for the user.
+    var now = Date.now();
+    var locked = now - _lastAutoUnlock < 5000;
+    if (!locked) {
+      _lastAutoUnlock = now;
+      socket.emit('clearAlarm', 2);
+    }
+    $('#cd-alarm-banner').toggleClass('cd-alarm-locked', locked);
+    $('#cdAlarmTitle').text(locked ? 'ALARM · STILL LOCKED' : 'ALARM · UNLOCKED');
+    $('#cdAlarmReason').text(cdAlarmReason(alarmText));
+    $('#cdAlarmHint').text(locked
+      ? 'It came straight back after unlocking. Fix the cause, then press UNLOCK.'
+      : 'Machine unlocked automatically. The position may be slightly off.');
+    $('#cdUnlockAlarm').toggle(locked);
+    document.getElementById('cd-alarm-banner').style.display = 'flex';
+  }
+
   window.cdUpdateConnection = function (connectionStatus, status) {
     var connected = connectionStatus >= 1;
     var running = connectionStatus === 3;
@@ -1054,19 +1088,19 @@ $(document).ready(function () {
     }
     if (typeof window.cdSettingsOnStatus === 'function') window.cdSettingsOnStatus();
 
-    // Alarm banner — debounce ON so transient alarm ticks during the connect
-    // handshake (GRBL often boots into alarm before settling) don't flash the
-    // banner; hide OFF immediately so clearing an alarm feels instant.
+    // GRBL locks on ALARM because it no longer trusts its position. On a pen
+    // plotter that does not matter, so unlock straight away and only report it.
+    // Debounced: GRBL often ticks through Alarm during the connect handshake.
+    if (alarm) _alarmText = (status && status.comms && status.comms.alarm) || _alarmText;
+    else _alarmText = '';
     if (alarm !== _lastAlarmShown) {
       _lastAlarmShown = alarm;
       if (_alarmShowTimer) { clearTimeout(_alarmShowTimer); _alarmShowTimer = null; }
       if (alarm) {
         _alarmShowTimer = setTimeout(function () {
           _alarmShowTimer = null;
-          if (_lastAlarmShown) document.getElementById('cd-alarm-banner').style.display = 'flex';
+          if (_lastAlarmShown) cdHandleAlarm(_alarmText);
         }, 700);
-      } else {
-        $('#cd-alarm-banner').hide();
       }
     }
 

@@ -2,6 +2,15 @@ module.exports = {
   version: require('./package.json').version,
   CHANGELOG: [
     {
+      date: '2026-09-26',
+      version: '1.30.0',
+      changes: [
+        'ALARM no longer locks the app. GRBL locks on ALARM because it stops trusting its position (homing enabled at boot, reset while moving after STOP). On a pen plotter that does not matter, so the Command Deck now unlocks automatically (queue emptied, soft reset, $X) once the alarm has held for 700ms.',
+        'An alarm that comes back within 5s of an auto-unlock (limit switch held, e-stop) is not unlocked again, to avoid a loop: the notice turns red, STILL LOCKED, with a manual UNLOCK button.',
+        'Alarm banner replaced by a quiet notice at the top of the right column: ALARM · UNLOCKED, the plain reason (started up locked / stopped while moving / limit switch / soft limit / raw code) and an OK to dismiss.'
+      ]
+    },
+    {
       date: '2026-09-20',
       version: '1.29.2',
       changes: [

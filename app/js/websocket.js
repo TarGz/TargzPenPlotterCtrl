@@ -497,8 +497,8 @@ function initSocket() {
     var printLogCls = "fg-darkRed"
     printLogModern(icon, source, string, printLogCls)
 
-    // v1.5.3: modal popup suppressed in favour of the Command Deck #cd-alarm-banner
-    // header warning, which is driven by cdUpdateConnection on connectionStatus === 5.
+    // v1.5.3: modal popup suppressed in favour of the Command Deck alarm notice,
+    // driven by cdUpdateConnection on connectionStatus === 5 (auto-unlocks).
     // Kept the log path above so the console still reflects the event.
     var dialog = null;
     //
