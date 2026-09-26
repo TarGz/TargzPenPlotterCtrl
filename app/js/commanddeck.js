@@ -72,6 +72,16 @@ $(document).ready(function () {
     fn(v);
   };
 
+  // Grbl owns the override value: a soft reset (STOP) puts it back to 100 and
+  // the slider was never told. Hands off while it is being dragged or typed into.
+  window.cdSyncOverrideSlider = function (sliderId, valId, v) {
+    var el = document.getElementById(sliderId);
+    if (!el || isNaN(v) || el.matches(':active')) return;
+    if ($('#' + valId).closest('.cd-vslider-val').find('.cd-vslider-edit').length) return;
+    el.value = v;
+    document.getElementById(valId).textContent = v;
+  };
+
   // ─── Override value click-to-edit ─────────────────────────────────────────
   // Clicking the % display opens an inline number input; Enter or blur applies.
   $(document).on('click', '.cd-vslider-val', function () {
@@ -355,6 +365,7 @@ $(document).ready(function () {
     loadedFileName = '';
     setWindowTitle();
     cdUpdateFileState(false, '');
+    if (typeof window.cdClearInterruptedPlot === 'function') window.cdClearInterruptedPlot();
   });
 
   // ─── Alarm unlock ────────────────────────────────────────────────────────
@@ -550,6 +561,103 @@ $(document).ready(function () {
     });
   };
 
+  /* ─── Resume after an interrupted plot ───────────────────────────────────
+     The recovery machinery already exists and is careful — `startFromHere` in
+     wizards/resume validates, scans the modal state up to the line, builds a
+     preamble and deliberately does NOT start the job. What was missing is
+     getting into it at the right line after a drop, which is the one moment
+     you cannot look it up: the run is gone and the number was only ever in
+     localStorage.
+
+     WHAT IS STORED IS THE SENT COUNT, NOT THE DRAWN ONE. `gcodeLineNumber` is
+     written by the queue tick as lines go out the port, and grbl buffers ahead
+     of the pen — so the last line sent is somewhere in front of the last line
+     drawn. Resuming there leaves a gap the length of the planner buffer. We
+     rewind instead: ink over ink is invisible on a pen plot and a gap is not.
+
+     WHOLE-FILE RUNS ONLY. A layer plot streams gcode this app generated from
+     the stroke selection; its line numbers do not address the editor's content
+     at all, so a recovery built from one would scan the wrong file and place
+     the pen from a state that never existed. Nothing is offered in that case.
+
+     AND IT NEVER STARTS ANYTHING. The banner opens the existing dialog. The
+     machine moves when you press Run, not when a cable comes back. */
+  var CD_RESUME_OVERLAP_LINES = 20;
+  var CD_RESUME_LS = 'cdInterruptedPlot';
+
+  function cdRecordInterruptedPlot(reason) {
+    // A layer plot's line numbers belong to generated gcode, not to the editor.
+    if (typeof strokePlotLayerId !== 'undefined' && strokePlotLayerId !== null) return;
+    var line = parseInt(localStorage.getItem('gcodeLineNumber'), 10);
+    if (isNaN(line) || line <= 1) return;
+    // Already holding one from this same drop — the disconnect and the ALARM
+    // that follows it are one event.
+    var existing = cdReadInterruptedPlot();
+    if (existing && Date.now() - existing.at < 20000) return;
+    localStorage.setItem(CD_RESUME_LS, JSON.stringify({
+      line: line,
+      file: (typeof loadedFileName !== 'undefined' && loadedFileName) ? loadedFileName : '',
+      reason: reason,
+      at: Date.now()
+    }));
+    cdRefreshResumeBanner();
+  }
+
+  function cdReadInterruptedPlot() {
+    try {
+      var raw = localStorage.getItem(CD_RESUME_LS);
+      if (!raw) return null;
+      var rec = JSON.parse(raw);
+      return (rec && rec.line > 1) ? rec : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  window.cdClearInterruptedPlot = function () {
+    localStorage.removeItem(CD_RESUME_LS);
+    cdRefreshResumeBanner();
+  };
+
+  window.cdRefreshResumeBanner = function () {
+    var rec = cdReadInterruptedPlot();
+    var $b = $('#cd-resume-banner');
+    if (!$b.length) return;
+    if (!rec) { $b.hide(); return; }
+
+    var resumeAt = Math.max(1, rec.line - CD_RESUME_OVERLAP_LINES);
+    var when = new Date(rec.at);
+    var hh = ('0' + when.getHours()).slice(-2) + ':' + ('0' + when.getMinutes()).slice(-2);
+    var sameFile = !rec.file ||
+      (typeof loadedFileName !== 'undefined' && loadedFileName === rec.file);
+
+    var detail = hh + ' — ' + rec.reason + '.<br>' +
+      'Stopped at line ' + rec.line + '. Resume from ' + resumeAt +
+      ' (' + CD_RESUME_OVERLAP_LINES + ' lines of overlap).';
+    if (!sameFile) {
+      detail += '<br><span style="color:var(--cd-bad);">Loaded file is not ' +
+        cdEscape(rec.file) + ' — load it first.</span>';
+    }
+    $('#cdResumeDetail').html(detail);
+    $('#cdResumeBtn').prop('disabled', !sameFile);
+    $b.show();
+  };
+
+  function cdEscape(t) {
+    return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  $('#cdResumeDismiss').on('click', function () { window.cdClearInterruptedPlot(); });
+
+  $('#cdResumeBtn').on('click', function () {
+    var rec = cdReadInterruptedPlot();
+    if (!rec) return;
+    window.cdClearInterruptedPlot();
+    startFromHere(Math.max(1, rec.line - CD_RESUME_OVERLAP_LINES));
+  });
+
+  cdRefreshResumeBanner();
+
   // ─── Z-height edit popover ────────────────────────────────────────────────
   var $zpenPop = $(
     '<div id="cdZpenPopover" class="cd-zpen-popover">' +
@@ -608,6 +716,7 @@ $(document).ready(function () {
     _zpenState.$span.text(v.toFixed(1));
     localStorage.setItem(_zpenState.key, v);
     if (typeof window.cdRefreshPenHints === 'function') window.cdRefreshPenHints();
+    if (_zpenState.key === 'penDownZ' && typeof window.refreshGridFloor === 'function') window.refreshGridFloor();
     $zpenPop.removeClass('is-open');
   }
 
@@ -661,6 +770,132 @@ $(document).ready(function () {
 
   $('#cdGotoXY0Btn').on('click', function () {
     $('#gotozeroWPos').trigger('click');
+  });
+
+  // ─── Paper frame ─────────────────────────────────────────────────────────
+  // Illustrator and Inkscape disagree about user units and about whether a
+  // stroke counts towards a shape's box, so a "594x841" rectangle round-tripped
+  // through them arrives scaled by 0.75 or shifted a few mm sideways. A sheet
+  // outline has no artwork in it worth a round trip — generate it here at the
+  // exact ISO size instead.
+  var CD_PAPER_SIZES = {
+    A0: [841, 1189],
+    A1: [594, 841],
+    A2: [420, 594],
+    A3: [297, 420],
+    A4: [210, 297],
+    A5: [148, 210]
+  };
+
+  function cdPaperPick() {
+    var size = $('#cdPaperSizes .cd-step-active').data('paper') || 'A1';
+    var portrait = ($('#cdPaperOrient .cd-step-active').data('orient') || 'portrait') === 'portrait';
+    var d = CD_PAPER_SIZES[size];
+    return {
+      name: size,
+      portrait: portrait,
+      w: portrait ? d[0] : d[1],
+      h: portrait ? d[1] : d[0]
+    };
+  }
+
+  function cdPaperFeed() {
+    var f = parseFloat($('#cdPaperFeed').val());
+    if (isNaN(f) || f <= 0) f = 4000;
+    return Math.round(f);
+  }
+
+  function cdPaperRefresh() {
+    var p = cdPaperPick();
+    var txt = p.w.toFixed(1) + ' \u00d7 ' + p.h.toFixed(1) + ' mm';
+    var over = [];
+    if (sizexmax > 0 && p.w > sizexmax) over.push('X by ' + (p.w - sizexmax).toFixed(1) + 'mm');
+    if (sizeymax > 0 && p.h > sizeymax) over.push('Y by ' + (p.h - sizeymax).toFixed(1) + 'mm');
+    if (over.length) txt += '\nOverruns travel: ' + over.join(', ');
+    $('#cdPaperReadout').text(txt).toggleClass('is-over', over.length > 0);
+  }
+
+  function cdBuildPaperFrame() {
+    var p = cdPaperPick();
+    var feed = cdPaperFeed();
+    var pens = cdReadPenHeights();
+    var pump = cdReadPump();
+    var w = p.w.toFixed(3);
+    var h = p.h.toFixed(3);
+
+    var g = '';
+    g += '; === PAPER FRAME ' + p.name + ' ' + (p.portrait ? 'PORTRAIT' : 'LANDSCAPE') + ' ===\n';
+    g += '; ' + w + ' x ' + h + ' mm, corner on work zero.\n';
+    g += '; Generated: ' + new Date().toISOString() + '\n\n';
+    g += 'G21\nG17\nG90\n';
+    g += 'G0 Z' + pens.up + '\n';
+    g += 'G0 X0.000 Y0.000\n';
+    if (pump.mode !== 'off') {
+      g += 'G0 Z' + pump.z + '\n';
+      if (pump.dwell > 0) g += 'G4 P' + (pump.dwell / 1000).toFixed(3) + '\n';
+    }
+    g += 'G1 Z' + pens.down + ' F' + feed + '\n';
+    g += 'G1 X' + w + ' Y0.000 F' + feed + '\n';
+    g += 'G1 X' + w + ' Y' + h + ' F' + feed + '\n';
+    g += 'G1 X0.000 Y' + h + ' F' + feed + '\n';
+    g += 'G1 X0.000 Y0.000 F' + feed + '\n';
+    g += 'G0 Z' + pens.up + '\n';
+    return g;
+  }
+
+  $('#cdPaperBtn').on('click', function () {
+    var size = localStorage.getItem('paperFrameSize');
+    var orient = localStorage.getItem('paperFrameOrient');
+    var feed = parseFloat(localStorage.getItem('paperFrameFeed'));
+    if (CD_PAPER_SIZES[size]) {
+      $('#cdPaperSizes .cd-step-btn').removeClass('cd-step-active')
+        .filter('[data-paper="' + size + '"]').addClass('cd-step-active');
+    }
+    if (orient === 'portrait' || orient === 'landscape') {
+      $('#cdPaperOrient .cd-step-btn').removeClass('cd-step-active')
+        .filter('[data-orient="' + orient + '"]').addClass('cd-step-active');
+    }
+    if (!isNaN(feed) && feed > 0) $('#cdPaperFeed').val(feed);
+    cdPaperRefresh();
+    $('#cd-paper-modal').fadeIn(120);
+  });
+
+  $('#cdPaperSizes').on('click', '.cd-step-btn', function () {
+    $('#cdPaperSizes .cd-step-btn').removeClass('cd-step-active');
+    $(this).addClass('cd-step-active');
+    cdPaperRefresh();
+  });
+
+  $('#cdPaperOrient').on('click', '.cd-step-btn', function () {
+    $('#cdPaperOrient .cd-step-btn').removeClass('cd-step-active');
+    $(this).addClass('cd-step-active');
+    cdPaperRefresh();
+  });
+
+  $('#cdPaperCancel').on('click', function () {
+    $('#cd-paper-modal').fadeOut(120);
+  });
+
+  $('#cd-paper-modal').on('click', function (e) {
+    if (e.target === this) $('#cd-paper-modal').fadeOut(120);
+  });
+
+  $('#cdPaperLoad').on('click', function () {
+    var p = cdPaperPick();
+    localStorage.setItem('paperFrameSize', p.name);
+    localStorage.setItem('paperFrameOrient', p.portrait ? 'portrait' : 'landscape');
+    localStorage.setItem('paperFrameFeed', cdPaperFeed());
+
+    editor.setValue(cdBuildPaperFrame());
+    editor.clearSelection();
+    parseGcodeInWebWorker(editor.getValue());
+
+    loadedFileName = p.name + '-' + (p.portrait ? 'portrait' : 'landscape') + '-frame.gcode';
+    setWindowTitle();
+    cdUpdateFileState(true, loadedFileName);
+
+    $('#cd-paper-modal').fadeOut(120);
+    $('#gcodeviewertab').click();
   });
 
   // ─── Scrub panel (docked at bottom of right sidebar) ─────────────────────
@@ -762,11 +997,13 @@ $(document).ready(function () {
     // Push a phone alert if a job that was live drops out from under us.
     // Only these two transitions — a normal finish lands on IDLE and is
     // handled by the jobComplete handler instead.
-    if (_cdJobWasLive && typeof cdNotifyPlotFailed === 'function') {
+    if (_cdJobWasLive) {
       if (!connected) {
-        cdNotifyPlotFailed('machine disconnected mid-plot', true);
+        if (typeof cdNotifyPlotFailed === 'function') cdNotifyPlotFailed('machine disconnected mid-plot', true);
+        cdRecordInterruptedPlot('disconnected mid-plot');
       } else if (alarm) {
-        cdNotifyPlotFailed('controller went into ALARM', true);
+        if (typeof cdNotifyPlotFailed === 'function') cdNotifyPlotFailed('controller went into ALARM', true);
+        cdRecordInterruptedPlot('controller went into ALARM');
       }
     }
 
@@ -979,6 +1216,13 @@ $(document).ready(function () {
       window.cdStopProgressTicker();
     }
 
+    /* The greying on the canvas comes off with the job. Leaving it up after a
+       run ends would show a finished plot as a sheet of grey with nothing to
+       say whether that is progress or a selection. */
+    if (!running && !paused && typeof window.clearLivePlotProgress === 'function') {
+      window.clearLivePlotProgress();
+    }
+
     // Canvas state chip (top-right of 3D VIEW / CONSOLE / ... strip)
     var $chip = $('#cdCanvasState');
     if ($chip.length) {
@@ -1005,6 +1249,10 @@ $(document).ready(function () {
 
   // ─── File state ───────────────────────────────────────────────────────────
   window.cdUpdateFileState = function (loaded, filename) {
+    // The banner reports whether the recorded file is the one in the editor.
+    if (typeof window.cdRefreshResumeBanner === 'function') {
+      setTimeout(window.cdRefreshResumeBanner, 0);
+    }
     if (loaded && filename) {
       $('#cdFileName').text(filename).show();
       $('#cdFileUnload').show();

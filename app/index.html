@@ -897,6 +897,10 @@
                     <span class="cd-util-label">CHECK SIZE</span>
                     <span class="cd-util-hint">bounds dry-run</span>
                   </button>
+                  <button class="cd-util-btn" id="cdPaperBtn" style="grid-column: 1 / -1;">
+                    <span class="cd-util-label">PAPER FRAME</span>
+                    <span class="cd-util-hint">ISO A0&ndash;A5 rectangle</span>
+                  </button>
                 </div>
               </div>
 
@@ -925,16 +929,16 @@
                     <div class="cd-vslider-label">FEED</div>
                     <div class="cd-vslider-track">
                       <input type="range" id="cdFro" class="cd-vslider-input" orient="vertical"
-                        min="1" max="500" value="100"
+                        min="10" max="200" value="100"
                         oninput="document.getElementById('cdFroVal').textContent=this.value"
                         onchange="feedOverride(+this.value)">
                     </div>
                     <div class="cd-vslider-nudge-row">
-                      <button class="cd-vslider-nudge" onclick="cdNudgeOverride('cdFro','cdFroVal',-1,feedOverride,1,500)">−</button>
-                      <div class="cd-vslider-val" data-slider="cdFro" data-fn="feedOverride" data-min="1" data-max="500">
+                      <button class="cd-vslider-nudge" onclick="cdNudgeOverride('cdFro','cdFroVal',-1,feedOverride,10,200)">−</button>
+                      <div class="cd-vslider-val" data-slider="cdFro" data-fn="feedOverride" data-min="10" data-max="200">
                         <span id="cdFroVal" class="cd-vslider-num">100</span><span class="cd-vslider-unit">%</span>
                       </div>
-                      <button class="cd-vslider-nudge" onclick="cdNudgeOverride('cdFro','cdFroVal',1,feedOverride,1,500)">+</button>
+                      <button class="cd-vslider-nudge" onclick="cdNudgeOverride('cdFro','cdFroVal',1,feedOverride,10,200)">+</button>
                     </div>
                     <button class="cd-vslider-reset" onclick="document.getElementById('cdFro').value=100; document.getElementById('cdFroVal').textContent=100; feedOverride(100)">RESET</button>
                   </div>
@@ -1223,6 +1227,17 @@
                   <div><div class="cd-stat-label">LINE</div><div id="cdLine" class="cd-stat-val">0</div></div>
                   <div><div class="cd-stat-label">TRAVEL</div><div id="cdTravel" class="cd-stat-val">0mm</div></div>
                 </div>
+
+                <!-- Left behind by a plot that dropped out. Sticks until it is
+                     resumed or the file is unloaded; nothing happens on its own. -->
+                <div id="cd-resume-banner" class="cd-resume-banner" style="display:none;">
+                  <div class="cd-resume-head">⚠ PLOT INTERRUPTED</div>
+                  <div id="cdResumeDetail" class="cd-resume-detail">—</div>
+                  <div class="cd-resume-actions">
+                    <button id="cdResumeDismiss" class="cd-resume-dismiss" type="button">DISMISS</button>
+                    <button id="cdResumeBtn" class="cd-resume-go" type="button">RESUME</button>
+                  </div>
+                </div>
               </div>
 
               <!-- Layers: MAIN is the whole file and cannot be edited
@@ -1359,6 +1374,46 @@
             <div style="flex:1;"></div>
             <div class="cd-status-cell" style="border-left: 1px solid var(--cd-border); border-right: none;">
               <span id="cdMpos">MPos X0 Y0 Z0</span>
+            </div>
+          </div>
+
+          <!-- Paper frame generator -->
+          <div id="cd-paper-modal" style="display:none;">
+            <div class="cd-modal-box cd-modal-neutral">
+              <div class="cd-modal-title">&#9645; PAPER FRAME</div>
+              <div class="cd-modal-desc">Builds an exact ISO rectangle with its corner on work zero and loads it as the current job. Replaces whatever is loaded now.</div>
+
+              <div class="cd-sub-section">
+                <div class="cd-sub-label">SIZE</div>
+                <div class="cd-step-row" id="cdPaperSizes">
+                  <button class="cd-step-btn" data-paper="A0">A0</button>
+                  <button class="cd-step-btn cd-step-active" data-paper="A1">A1</button>
+                  <button class="cd-step-btn" data-paper="A2">A2</button>
+                  <button class="cd-step-btn" data-paper="A3">A3</button>
+                  <button class="cd-step-btn" data-paper="A4">A4</button>
+                  <button class="cd-step-btn" data-paper="A5">A5</button>
+                </div>
+              </div>
+
+              <div class="cd-sub-section">
+                <div class="cd-sub-label">ORIENTATION</div>
+                <div class="cd-step-row" id="cdPaperOrient">
+                  <button class="cd-step-btn cd-step-active" data-orient="portrait">PORTRAIT</button>
+                  <button class="cd-step-btn" data-orient="landscape">LANDSCAPE</button>
+                </div>
+              </div>
+
+              <div class="cd-sub-section">
+                <div class="cd-sub-label">FEED (mm/min)</div>
+                <input type="number" id="cdPaperFeed" class="cd-paper-input" min="1" max="20000" step="100" value="4000">
+              </div>
+
+              <div class="cd-paper-readout" id="cdPaperReadout">&mdash;</div>
+
+              <div class="cd-modal-actions">
+                <button class="cd-modal-cancel" id="cdPaperCancel">CANCEL</button>
+                <button class="cd-modal-confirm" id="cdPaperLoad">LOAD</button>
+              </div>
             </div>
           </div>
 

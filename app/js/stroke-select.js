@@ -1247,6 +1247,25 @@ function strokePaintViewMode() {
   colors.needsUpdate = true;
 }
 
+// The F each kept stroke was drawn at in the source. Read up to AND including
+// the stroke's first drawing line: that is where generators put the F, and
+// stopping just before it left the rebuilt file with no F at all — Grbl then drew
+// at whatever feed it last had. F is modal whatever the motion, so an F on a G0
+// line counts too. A source with no F anywhere gets none here either.
+function strokeFeeds(keep) {
+  var feeds = [];
+  var f = null;
+  var line = 0;
+  keep.forEach(function (idx) {
+    for (; line <= strokes[idx].lineA; line++) {
+      var m = (editor.session.getLine(line) || '').split(/[;(]/)[0].toUpperCase().match(/F\s*(\d*\.?\d+)/);
+      if (m) f = parseFloat(m[1]);
+    }
+    feeds.push(f);
+  });
+  return feeds;
+}
+
 // Called by runJobFile: the G-code to stream, or null to plot the whole file.
 // Built fresh at plot time so it always uses the current pen heights.
 window.strokePartGcodeIfArmed = function () {
@@ -1287,7 +1306,7 @@ function strokeBuildGcode(keep) {
     g += 'G21\nG90\n';
   }
 
-  var feed = (state && state.lastCuttingFeed) ? state.lastCuttingFeed : null;
+  var feeds = strokeFeeds(keep);
 
   // This generator does not filter the source file, it rebuilds one from the
   // stroke geometry — so anything the source did between strokes, a priming dip
@@ -1315,6 +1334,7 @@ function strokeBuildGcode(keep) {
       // physically settles at depth — the plot primes less than the button does.
       if (pump.dwell > 0) g += 'G4 P' + (pump.dwell / 1000).toFixed(3) + '\n';
     }
+    var feed = feeds[n];
     g += 'G1 Z' + pens.down + (feed ? ' F' + feed : '') + '\n';
     for (var i = s.a + 1; i <= s.b; i++) {
       var p = lp[i];

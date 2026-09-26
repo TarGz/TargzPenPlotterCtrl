@@ -359,7 +359,24 @@ function redrawGrid(xmin, xmax, ymin, ymax, inches) {
   gridsystem.add(grid);
   gridsystem.add(ruler);
 
+  applyGridFloor();
 }
+
+// The grid IS the sheet of paper. Z zero on this machine is the top of the pen
+// carrier, so every drawing move in a job lives near penDownZ (-29) — a grid
+// pinned at Z0 hangs ~30mm above the toolpath it is supposed to sit under.
+function gridFloorZ() {
+  if (typeof cdReadPenHeights === 'function') return cdReadPenHeights().down;
+  var z = parseFloat(localStorage.getItem('penDownZ'));
+  return isNaN(z) ? -29 : z;
+}
+
+function applyGridFloor() {
+  gridsystem.position.z = gridFloorZ();
+}
+
+// Called when the PEN DOWN height is edited, so the paper moves with it.
+window.refreshGridFloor = applyGridFloor;
 
 function setBullseyePosition(x, y, z) {
   //console.log('Set Position: ', x, y, z)

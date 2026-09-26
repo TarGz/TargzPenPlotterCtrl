@@ -339,6 +339,13 @@ function initSocket() {
         cdRunParkMove();
       }
 
+      // A job that ran to the end leaves nothing to resume. A failed one keeps
+      // whatever the drop recorded — that banner is the only place the line
+      // survives once the run is gone.
+      if (!data.failed && typeof window.cdClearInterruptedPlot === 'function') {
+        window.cdClearInterruptedPlot();
+      }
+
       // Push a phone notification on clean completion, or an alert if the job
       // ended early (abort / stream failure).
       if (!data.failed && typeof cdNotifyPlotDone === 'function') {
@@ -435,6 +442,13 @@ function initSocket() {
         // after the job has ended, past any is-it-running check.
         window.restartIgnoreCursorUntil = Date.now() + 2000;
         editor.gotoLine(data[1] - data[0]);
+        // Grey out what the pen has already drawn. gotoLine is 1-based and the
+        // point-index map is keyed by row, hence the -1. Deliberately fed the
+        // queue's own number rather than reading the cursor back: see
+        // paintLivePlotProgress in restart-from-point.js.
+        if (typeof window.paintLivePlotProgress === 'function') {
+          window.paintLivePlotProgress(data[1] - data[0] - 1);
+        }
       }
       if (typeof object !== 'undefined' && done > 0) {
         if (object.userData !== 'undefined' && object.userData && object.userData.linePoints.length > 2) {
@@ -761,6 +775,8 @@ function initSocket() {
         var toolOn = status.machine.overrides.realSpindle > 0;
         cdUpdateFeed(status.machine.overrides.realFeed, status.machine.overrides.feedOverride, status.machine.overrides.spindleOverride, toolOn);
         cdUpdateToolState(toolOn);
+        cdSyncOverrideSlider('cdFro', 'cdFroVal', parseInt(status.machine.overrides.feedOverride));
+        cdSyncOverrideSlider('cdTro', 'cdTroVal', parseInt(status.machine.overrides.spindleOverride));
       }
       if (typeof cdUpdateRunControls === 'function') cdUpdateRunControls(status.comms.connectionStatus);
     }

@@ -357,13 +357,27 @@ function dimToolpathBefore(pointIdx) {
   dimToolpathOutside(pointIdx, -1);
 }
 
-// Paint everything outside [startIdx, endIdx] black — that part is already
+/* ── TWO DIMS, TWO COLOURS, AND THEY ARE NOT THE SAME STATEMENT ────────────
+   BLACK is EDIT: you took these strokes out of the run. GREY is LIVE: the pen
+   has physically been here. One is your decision and the other is the machine
+   reporting, and painting both the same makes a plot in progress look like a
+   selection you made. The chip in the view strip names which mode is on. */
+var TOOLPATH_DIM_EDIT = [0, 0, 0];
+// DRAWN lives in the theme beside travel and feed — it is a state of the line,
+// not a local shade this file happened to pick.
+function toolpathDrawnColour() {
+  var c = Theme.DRAWN_COLOR;
+  return [c.R, c.G, c.B];
+}
+
+// Paint everything outside [startIdx, endIdx] in `rgb` — that part is already
 // drawn on the sheet. Only the range that will actually be plotted keeps its
 // original colours. endIdx < 0 means "to the end".
-function dimToolpathOutside(startIdx, endIdx) {
+function dimToolpathOutside(startIdx, endIdx, rgb) {
   if (!object || !object.geometry || !object.geometry.attributes.color) return;
 
   var colors = object.geometry.attributes.color;
+  var c = rgb || TOOLPATH_DIM_EDIT;
 
   if (!originalToolpathColors) {
     originalToolpathColors = new Float32Array(colors.array);
@@ -375,12 +389,12 @@ function dimToolpathOutside(startIdx, endIdx) {
 
   // The colour buffer runs in linePoints order (see convertParsedDataToObject),
   // so the plotted range is [startIdx*3, endIdx*3] and everything either side
-  // of it gets blacked out.
+  // of it gets dimmed.
   function ghost(from, to) {
     for (var i = Math.max(0, from); i < Math.min(total, to); i += 3) {
-      colors.array[i]     = 0;
-      colors.array[i + 1] = 0;
-      colors.array[i + 2] = 0;
+      colors.array[i]     = c[0];
+      colors.array[i + 1] = c[1];
+      colors.array[i + 2] = c[2];
     }
   }
 
@@ -389,6 +403,48 @@ function dimToolpathOutside(startIdx, endIdx) {
 
   colors.needsUpdate = true;
 }
+
+/* ── LIVE PLOT PROGRESS ────────────────────────────────────────────────────
+   DRIVEN BY THE STREAMER'S OWN LINE COUNT and not by the editor cursor. The
+   cursor is moved BY the stream and its watcher is debounced, so the last move
+   of a job lands after the job has ended — that is what painted false progress
+   at the end of every plot (v1.28.3), and why the cursor path still refuses to
+   run while the controller is busy. This reads the number the queue reports,
+   once per tick, with no round trip through the editor.
+
+   ONLY FOR A WHOLE-FILE RUN. A layer plot streams gcode this app generated
+   from the stroke selection; its line numbers do not address the geometry on
+   screen at all, so mapping them onto it would draw a confident picture of
+   somewhere the pen has never been. Nothing is painted in that case.
+
+   AND IT NEVER TAKES A BUFFER SOMEBODY ELSE OWNS. `originalToolpathColors` is
+   shared with the stroke editor; if that already holds a snapshot, its painting
+   is on screen for a reason and this stays out of the way. */
+var liveProgressActive = false;
+
+function livePlotPaintable() {
+  if (!object || !object.userData || !object.userData.gcodeLineToPointIndex) return false;
+  // MAIN is armed when no layer is — anything else is generated gcode.
+  if (typeof strokePlotLayerId !== 'undefined' && strokePlotLayerId !== null) return false;
+  return liveProgressActive || !originalToolpathColors;
+}
+
+function paintLivePlotProgress(gcodeRow) {
+  if (!livePlotPaintable()) return;
+  var pointIdx = object.userData.gcodeLineToPointIndex[gcodeRow];
+  if (pointIdx === undefined) return;
+  liveProgressActive = true;
+  dimToolpathOutside(pointIdx, -1, toolpathDrawnColour());
+}
+
+function clearLivePlotProgress() {
+  if (!liveProgressActive) return;
+  liveProgressActive = false;
+  restoreToolpathColors();
+}
+
+window.paintLivePlotProgress = paintLivePlotProgress;
+window.clearLivePlotProgress = clearLivePlotProgress;
 
 function restoreToolpathColors() {
   if (!originalToolpathColors || !object || !object.geometry || !object.geometry.attributes.color) return;

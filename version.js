@@ -2,6 +2,18 @@ module.exports = {
   version: require('./package.json').version,
   CHANGELOG: [
     {
+      date: '2026-09-20',
+      version: '1.29.2',
+      changes: [
+        'Fix — an edited layer plotted far too fast, drawing nothing. strokeBuildGcode() took its feed from scanModalState(lineA + 1), which reads only the lines BEFORE the first kept stroke — but the stroke\'s own first drawing line is where generators put the F. The rebuilt file had no F at all, so Grbl drew at whatever feed it last had (a jog travel sets F5000). strokeFeeds() now reads each kept stroke\'s F from the source up to and including its first drawing line, counting an F on a G0 line too since F is modal. A source with no F anywhere still gets none, exactly as plotting the source would.',
+        'Fix — the resume wizard missed G01 and packed lines (G1X10F1500): \\bG1\\b cannot match either, so their F was filed as a rapid feed. G words are now parsed as numbers.',
+        'Fix — FEED and TOOL overrides appeared dead. The Command Deck sliders were never updated from Grbl\'s reported Ov:, so after STOP (a soft reset, back to 100%) they kept showing the old value. cdSyncOverrideSlider() now follows the machine, hands off while a slider is dragged or its value typed.',
+        'FEED slider is 10–200%, the range Grbl accepts; it was 1–500 and silently capped.',
+        'Override steps rebuilt in index.js (stepOverride, shared by FEED and TOOL): the target is clamped to 10–200, every change resets to 100 then steps from there, and a new change cancels the previous one\'s pending steps. The old code stepped from the last reported value, which lags the steps still in flight, so quick successive changes overshot.',
+        'Verified headlessly: per-stroke F for first / middle / last strokes and a source without F; G01, packed and G17 / G38.2 motion parsing; override byte sequences for 50, 137, 500→200, 1→10, 100 and a superseded request, with 50ms step spacing.'
+      ]
+    },
+    {
       date: '2026-08-30',
       version: '1.29.0',
       changes: [

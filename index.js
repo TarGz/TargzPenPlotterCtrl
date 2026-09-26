@@ -2002,71 +2002,7 @@ io.on("connection", function(socket) {
         case 'grbl':
           debug_log("current FRO = " + status.machine.overrides.feedOverride)
           debug_log("requested FRO = " + data)
-          var curfro = parseInt(status.machine.overrides.feedOverride)
-          var reqfro = parseInt(data)
-          var delta;
-
-          if (reqfro == 100) {
-            addQRealtime(String.fromCharCode(0x90));
-          } else if (curfro < reqfro) {
-            // FRO Increase
-            delta = reqfro - curfro
-            debug_log("delta = " + delta)
-            var tens = Math.floor(delta / 10)
-
-            debug_log("need to send " + tens + " x10s increase")
-            // for (i = 0; i < tens; i++) {
-            //   addQRealtime(String.fromCharCode(0x91));
-            // }
-            for (let i = 1; i < tens + 1; i++) {
-              setTimeout(function timer() {
-                addQRealtime(String.fromCharCode(0x91));
-                addQRealtime("?");
-              }, i * 50);
-            }
-
-            var ones = delta - (10 * tens);
-            debug_log("need to send " + ones + " x1s increase")
-            // for (i = 0; i < ones; i++) {
-            //   addQRealtime(String.fromCharCode(0x93));
-            // }
-            for (let i = 1; i < ones + 1; i++) {
-              setTimeout(function timer() {
-                addQRealtime(String.fromCharCode(0x93));
-                addQRealtime("?");
-              }, i * 50);
-            }
-          } else if (curfro > reqfro) {
-            // FRO Decrease
-            delta = curfro - reqfro
-            debug_log("delta = " + delta)
-
-            var tens = Math.floor(delta / 10)
-            debug_log("need to send " + tens + " x10s decrease")
-            // for (i = 0; i < tens; i++) {
-            //   addQRealtime(String.fromCharCode(0x92));
-            // }
-            for (let i = 1; i < tens + 1; i++) {
-              setTimeout(function timer() {
-                addQRealtime(String.fromCharCode(0x92));
-                addQRealtime("?");
-              }, i * 50);
-            }
-
-            var ones = delta - (10 * tens);
-            debug_log("need to send " + ones + " x1s decrease")
-            // for (i = 0; i < tens; i++) {
-            //   addQRealtime(String.fromCharCode(0x94));
-            // }
-            for (let i = 1; i < ones + 1; i++) {
-              setTimeout(function timer() {
-                addQRealtime(String.fromCharCode(0x94));
-                addQRealtime("?");
-              }, i * 50);
-            }
-          }
-          addQRealtime("?");
-          status.machine.overrides.feedOverride = parseInt(reqfro); // Set now, but will be overriden from feedback from Grbl itself in next queryloop
+          status.machine.overrides.feedOverride = stepOverride('feed', parseInt(data), FEED_OVR_BYTES); // Set now, but will be overriden from feedback from Grbl itself in next queryloop
           break;
       }
     } else {
@@ -2102,71 +2038,7 @@ io.on("connection", function(socket) {
         case 'grbl':
           debug_log("current SRO = " + status.machine.overrides.spindleOverride)
           debug_log("requested SRO = " + data)
-          var cursro = parseInt(status.machine.overrides.spindleOverride)
-          var reqsro = parseInt(data)
-          var delta;
-
-          if (reqsro == 100) {
-            addQRealtime(String.fromCharCode(153));
-          } else if (cursro < reqsro) {
-            // FRO Increase
-            delta = reqsro - cursro
-            debug_log("delta = " + delta)
-            var tens = Math.floor(delta / 10)
-
-            debug_log("need to send " + tens + " x10s increase")
-            // for (i = 0; i < tens; i++) {
-            //   addQRealtime(String.fromCharCode(154));
-            // }
-            for (let i = 1; i < tens + 1; i++) {
-              setTimeout(function timer() {
-                addQRealtime(String.fromCharCode(154));
-                addQRealtime("?");
-              }, i * 50);
-            }
-
-            var ones = delta - (10 * tens);
-            debug_log("need to send " + ones + " x1s increase")
-            // for (i = 0; i < ones; i++) {
-            //   addQRealtime(String.fromCharCode(156));
-            // }
-            for (let i = 1; i < ones + 1; i++) {
-              setTimeout(function timer() {
-                addQRealtime(String.fromCharCode(156));
-                addQRealtime("?");
-              }, i * 50);
-            }
-          } else if (cursro > reqsro) {
-            // FRO Decrease
-            delta = cursro - reqsro
-            debug_log("delta = " + delta)
-
-            var tens = Math.floor(delta / 10)
-            debug_log("need to send " + tens + " x10s decrease")
-            // for (i = 0; i < tens; i++) {
-            //   addQRealtime(String.fromCharCode(155));
-            // }
-            for (let i = 1; i < tens + 1; i++) {
-              setTimeout(function timer() {
-                addQRealtime(String.fromCharCode(155));
-                addQRealtime("?");
-              }, i * 50);
-            }
-
-            var ones = delta - (10 * tens);
-            debug_log("need to send " + ones + " x1s decrease")
-            // for (i = 0; i < tens; i++) {
-            //   addQRealtime(String.fromCharCode(157));
-            // }
-            for (let i = 1; i < ones + 1; i++) {
-              setTimeout(function timer() {
-                addQRealtime(String.fromCharCode(157));
-                addQRealtime("?");
-              }, i * 50);
-            }
-          }
-          addQRealtime("?");
-          status.machine.overrides.spindleOverride = parseInt(reqsro); // Set now, but will be overriden from feedback from Grbl itself in next queryloop
+          status.machine.overrides.spindleOverride = stepOverride('spindle', parseInt(data), SPINDLE_OVR_BYTES); // Set now, but will be overriden from feedback from Grbl itself in next queryloop
           break;
       }
     } else {
@@ -2968,6 +2840,34 @@ function addQToEnd(gcode) {
 
 function addQToStart(gcode) {
   gcodeQueue.unshift(gcode);
+}
+
+var FEED_OVR_BYTES = { reset: 0x90, coarseUp: 0x91, coarseDown: 0x92, fineUp: 0x93, fineDown: 0x94 };
+var SPINDLE_OVR_BYTES = { reset: 0x99, coarseUp: 0x9A, coarseDown: 0x9B, fineUp: 0x9C, fineDown: 0x9D };
+var overrideTimers = { feed: [], spindle: [] };
+
+// Grbl only accepts 10-200%. It latches each override byte as a flag until its
+// main loop next runs, so bytes sent back-to-back collapse into one step — hence
+// the 50ms spacing. Steps start from a reset to 100, not from the reported value:
+// that lags the steps still in flight, so a second request computed from it
+// overshoots. A new request also cancels the previous one's pending steps.
+function stepOverride(kind, target, bytes) {
+  target = Math.max(10, Math.min(200, target));
+  overrideTimers[kind].forEach(clearTimeout);
+  overrideTimers[kind] = [];
+  addQRealtime(String.fromCharCode(bytes.reset));
+  var delta = target - 100;
+  var steps = [];
+  for (let i = 0; i < Math.floor(Math.abs(delta) / 10); i++) steps.push(delta > 0 ? bytes.coarseUp : bytes.coarseDown);
+  for (let i = 0; i < Math.abs(delta) % 10; i++) steps.push(delta > 0 ? bytes.fineUp : bytes.fineDown);
+  steps.forEach(function(b, i) {
+    overrideTimers[kind].push(setTimeout(function() {
+      addQRealtime(String.fromCharCode(b));
+      addQRealtime("?");
+    }, (i + 1) * 50));
+  });
+  addQRealtime("?");
+  return target;
 }
 
 function addQRealtime(gcode) {

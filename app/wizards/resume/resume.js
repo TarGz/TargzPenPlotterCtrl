@@ -101,10 +101,11 @@ function scanModalState(lineNumber) {
     if (line.length === 0) continue;
 
     // Track motion mode (sticky — affects how we interpret F values)
-    if (/\bG0\b/.test(line)) lastMotionMode = 'G0';
-    if (/\bG1\b/.test(line)) lastMotionMode = 'G1';
-    if (/\bG2\b/.test(line)) lastMotionMode = 'G2';
-    if (/\bG3\b/.test(line)) lastMotionMode = 'G3';
+    // Parsed as numbers: \bG1\b missed G01 and packed lines like G1X10F1500.
+    (line.match(/G\d+(\.\d+)?/g) || []).forEach(function (w) {
+      var n = parseFloat(w.substr(1));
+      if (n === 0 || n === 1 || n === 2 || n === 3) lastMotionMode = 'G' + n;
+    });
 
     // Distance mode
     if (/\bG90\b/.test(line)) state.distanceMode = 'G90';
