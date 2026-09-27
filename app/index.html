@@ -1231,11 +1231,12 @@
                 <!-- Left behind by a plot that dropped out. Sticks until it is
                      resumed or the file is unloaded; nothing happens on its own. -->
                 <div id="cd-resume-banner" class="cd-resume-banner" style="display:none;">
-                  <div class="cd-resume-head">⚠ PLOT INTERRUPTED</div>
+                  <div id="cdResumeHead" class="cd-resume-head">⚠ PLOT INTERRUPTED</div>
                   <div id="cdResumeDetail" class="cd-resume-detail">—</div>
+                  <ol id="cdResumeSteps" class="cd-resume-steps"></ol>
                   <div class="cd-resume-actions">
                     <button id="cdResumeDismiss" class="cd-resume-dismiss" type="button">DISMISS</button>
-                    <button id="cdResumeBtn" class="cd-resume-go" type="button">RESUME</button>
+                    <button id="cdResumeBtn" class="cd-resume-go" type="button">LOAD RESUME</button>
                   </div>
                 </div>
               </div>

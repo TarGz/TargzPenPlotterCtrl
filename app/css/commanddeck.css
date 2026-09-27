@@ -3391,6 +3391,42 @@
   word-break: break-word;
 }
 
+.cd-resume-steps {
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+  font-family: var(--cd-mono);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.cd-resume-step {
+  display: flex;
+  gap: 6px;
+  padding: 3px 0;
+  color: var(--cd-text-muted);
+}
+
+.cd-resume-mark {
+  flex: 0 0 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.cd-resume-step b {
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.cd-resume-step.is-done { opacity: 0.55; }
+.cd-resume-step.is-done .cd-resume-mark { color: var(--cd-good, #2e9d57); }
+
+.cd-resume-step.is-next b,
+.cd-resume-step.is-next .cd-resume-mark { color: var(--cd-accent); }
+
+.cd-resume-banner.is-loaded { border-color: var(--cd-accent); }
+.cd-resume-banner.is-loaded .cd-resume-head { color: var(--cd-accent); }
+
 .cd-resume-actions {
   display: flex;
   gap: 5px;

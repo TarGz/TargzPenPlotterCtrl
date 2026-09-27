@@ -3,6 +3,16 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-09-27',
+      version: '1.32.0',
+      changes: [
+        'Resume after an interrupted plot starts at a block, not at a raw line. It rewinds 20 lines from the last line sent, then back to the start of the block the pen was in (the line after the last drawing move before its travel), and copies the file from there line for line: the file\'s own pen-up, travel, pump dip and pen-down open the resume. The old recovery synthesised a plunge to "the last negative Z", which on a pen file where up, dip and draw are all negative could pick any of the three, and skipped the priming dip.',
+        'The PLOT INTERRUPTED banner is a live checklist: RECONNECT, HOME, LOAD RESUME, PRESS START, each ticked as it happens and the next one in orange. HOME ticks only after a homing cycle has completed since the link came back — a disconnect resets the board, which then no longer knows where the pen is, and it is auto-unlocked since 1.30.',
+        'RESUME is now LOAD RESUME and says nothing moves. After loading, the banner stays up in orange (RESUME LOADED · NOTHING HAS MOVED) with the line range it holds, the JOB card line count follows the loaded content, and UNDO · FULL FILE puts the original file back and re-offers the resume. The banner clears once the job runs.',
+        'Verified headlessly on the interrupted 33,598-line file: stopped at 6164 resumes from 6122 (pen-up, travel, dip, pen-down, whole stroke redrawn) and the body matches the source from 6122 to the end; a stop inside a block with a mid-line dip resumes at that block\'s start. Not yet tested on the machine.'
+      ]
+    },
+    {
+      date: '2026-09-27',
       version: '1.31.0',
       changes: [
         'Layer plots copy the source G-code instead of rebuilding it. A layer is the file with the unselected blocks cut out, each block running from pen-up to the end of its drawing: pen-up, travel, pump dip, dwell, pen-down and drawing lines exactly as the file has them. Pen heights, dips and feeds are now the same for a layer as for the whole file; the layer plot no longer reads the jog panel heights.',

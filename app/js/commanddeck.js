@@ -568,28 +568,29 @@ $(document).ready(function () {
   };
 
   /* ─── Resume after an interrupted plot ───────────────────────────────────
-     The recovery machinery already exists and is careful — `startFromHere` in
-     wizards/resume validates, scans the modal state up to the line, builds a
-     preamble and deliberately does NOT start the job. What was missing is
-     getting into it at the right line after a drop, which is the one moment
-     you cannot look it up: the run is gone and the number was only ever in
-     localStorage.
-
      WHAT IS STORED IS THE SENT COUNT, NOT THE DRAWN ONE. `gcodeLineNumber` is
      written by the queue tick as lines go out the port, and grbl buffers ahead
      of the pen — so the last line sent is somewhere in front of the last line
-     drawn. Resuming there leaves a gap the length of the planner buffer. We
-     rewind instead: ink over ink is invisible on a pen plot and a gap is not.
+     drawn. We rewind CD_RESUME_OVERLAP_LINES, then further back to the start of
+     the block the pen was in: the line after the last drawing move before its
+     travel. The resume then opens with the file's own pen-up, travel, pump dip
+     and pen-down, instead of a plunge synthesised from a guessed Z. Ink over
+     ink is invisible on a pen plot; a gap is not.
 
-     WHOLE-FILE RUNS ONLY. A layer plot streams gcode this app generated from
-     the stroke selection; its line numbers do not address the editor's content
-     at all, so a recovery built from one would scan the wrong file and place
-     the pen from a state that never existed. Nothing is offered in that case.
+     WHOLE-FILE RUNS ONLY. A layer plot streams a cut of the file; its line
+     numbers do not address the editor's content, so nothing is offered then.
 
-     AND IT NEVER STARTS ANYTHING. The banner opens the existing dialog. The
-     machine moves when you press Run, not when a cable comes back. */
+     AND IT NEVER STARTS ANYTHING. LOAD RESUME swaps the editor content; the
+     machine moves when you press START. The banner walks the steps in order
+     because a disconnect usually resets the board, which then no longer knows
+     where the pen is: START before HOME draws in the wrong place. */
   var CD_RESUME_OVERLAP_LINES = 20;
   var CD_RESUME_LS = 'cdInterruptedPlot';
+  var cdResumeLoaded = null;
+  var cdResumeStartCache = null;
+  var cdConnected = false;
+  var cdHomedSinceConnect = false;
+  var cdHomingSeen = false;
 
   function cdRecordInterruptedPlot(reason) {
     // A layer plot's line numbers belong to generated gcode, not to the editor.
@@ -622,44 +623,153 @@ $(document).ready(function () {
 
   window.cdClearInterruptedPlot = function () {
     localStorage.removeItem(CD_RESUME_LS);
+    cdResumeLoaded = null;
     cdRefreshResumeBanner();
   };
 
+  // 0-based editor row the resume starts at. Only a travel (a G0 that moves XY)
+  // opens a block, so a pump dip in the middle of a line does not.
+  function cdResumeBlockStart(line) {
+    var target = Math.max(1, line - CD_RESUME_OVERLAP_LINES) - 1;
+    var n = editor.session.getLength();
+    var motion = 0, lastDraw = -1, start = 0;
+    for (var i = 0; i <= target && i < n; i++) {
+      var c = (editor.session.getLine(i) || '').split(/[;(]/)[0].toUpperCase();
+      (c.match(/G\d+(\.\d+)?/g) || []).forEach(function (w) {
+        var g = parseFloat(w.substr(1));
+        if (g === 0 || g === 1 || g === 2 || g === 3) motion = g;
+      });
+      if (!/[XY]\s*[-+.\d]/.test(c)) continue;
+      if (motion === 0) start = lastDraw + 1;
+      else lastDraw = i;
+    }
+    return start;
+  }
+
+  function cdResumeStartFor(rec) {
+    if (!cdResumeStartCache || cdResumeStartCache.at !== rec.at) {
+      cdResumeStartCache = { at: rec.at, start: cdResumeBlockStart(rec.line) };
+    }
+    return cdResumeStartCache.start;
+  }
+
+  function cdBuildResumeGcode(start, file) {
+    var n = editor.session.getLength();
+    var state = scanModalState(start + 1);
+    var g = '; === RESUME - ' + (file || 'file') + ' from line ' + (start + 1) + ' of ' + n + ' ===\n';
+    g += '; Generated: ' + new Date().toISOString() + '\n';
+    g += '; Lines are copied from the source, starting at the block that was drawing.\n';
+    g += state.units + '\nG90\n' + state.wcs + '\n' + state.plane + '\n';
+    if (state.lastCuttingFeed) g += 'F' + state.lastCuttingFeed + '\n';
+    for (var i = start; i < n; i++) g += editor.session.getLine(i) + '\n';
+    return g;
+  }
+
+  function cdSetEditorGcode(g) {
+    editor.session.setValue(g);
+    parseGcodeInWebWorker(g);
+    $('#cdJobMeta').text(editor.session.getLength().toLocaleString() + ' LINES');
+  }
+
+  function cdResumeStep(state, title, hint) {
+    var mark = state === 'done' ? '✓' : (state === 'next' ? '→' : '○');
+    return '<li class="cd-resume-step is-' + state + '"><span class="cd-resume-mark">' + mark + '</span>' +
+      '<span><b>' + title + '</b>' + (hint ? '<br>' + hint : '') + '</span></li>';
+  }
+
   window.cdRefreshResumeBanner = function () {
-    var rec = cdReadInterruptedPlot();
     var $b = $('#cd-resume-banner');
     if (!$b.length) return;
+    var rec = cdResumeLoaded ? cdResumeLoaded.rec : cdReadInterruptedPlot();
     if (!rec) { $b.hide(); return; }
 
-    var resumeAt = Math.max(1, rec.line - CD_RESUME_OVERLAP_LINES);
     var when = new Date(rec.at);
     var hh = ('0' + when.getHours()).slice(-2) + ':' + ('0' + when.getMinutes()).slice(-2);
     var sameFile = !rec.file ||
       (typeof loadedFileName !== 'undefined' && loadedFileName === rec.file);
+    var homeStep = cdHomedSinceConnect
+      ? cdResumeStep('done', 'HOME', 'Homed since reconnecting.')
+      : cdResumeStep(cdConnected ? 'next' : 'todo', 'HOME',
+        'The board restarted when the link dropped and no longer knows where the pen is.');
+    var steps = cdResumeStep(cdConnected ? 'done' : 'next', 'RECONNECT', cdConnected ? '' : 'CONNECT at the top right.') +
+      homeStep;
+    var detail;
 
-    var detail = hh + ' — ' + rec.reason + '.<br>' +
-      'Stopped at line ' + rec.line + '. Resume from ' + resumeAt +
-      ' (' + CD_RESUME_OVERLAP_LINES + ' lines of overlap).';
-    if (!sameFile) {
-      detail += '<br><span style="color:var(--cd-bad);">Loaded file is not ' +
-        cdEscape(rec.file) + ' — load it first.</span>';
+    if (cdResumeLoaded) {
+      $('#cdResumeHead').text('RESUME LOADED · NOTHING HAS MOVED');
+      detail = 'The editor now holds lines ' + cdResumeLoaded.from.toLocaleString() + '–' +
+        cdResumeLoaded.total.toLocaleString() + ' of ' + cdEscape(rec.file || 'the file') + '.';
+      steps += cdResumeStep('done', 'RESUME LOADED', 'Starts with a pen-up and travel to the stroke that was drawing.');
+      steps += cdResumeStep(cdHomedSinceConnect ? 'next' : 'todo', 'PRESS START', 'Check the 3D view first: only what is left should show.');
+      $('#cdResumeBtn').hide();
+      $('#cdResumeDismiss').text('UNDO · FULL FILE');
+    } else {
+      $('#cdResumeHead').text('⚠ PLOT INTERRUPTED');
+      detail = hh + ' — ' + rec.reason + '. Last line sent: ' + rec.line.toLocaleString() + '.';
+      if (sameFile) {
+        var from = cdResumeStartFor(rec) + 1;
+        detail += '<br>Resume redraws from line ' + from.toLocaleString() +
+          ', the start of the stroke that was drawing — ink over ink does not show.';
+        steps += cdResumeStep(cdHomedSinceConnect ? 'next' : 'todo', 'LOAD RESUME',
+          'Puts lines ' + from.toLocaleString() + '–end in the editor. Nothing moves.');
+      } else {
+        detail += '<br><span style="color:var(--cd-bad);">Loaded file is not ' +
+          cdEscape(rec.file) + ' — load it first.</span>';
+        steps += cdResumeStep('todo', 'LOAD RESUME', '');
+      }
+      steps += cdResumeStep('todo', 'PRESS START', '');
+      $('#cdResumeBtn').show().prop('disabled', !sameFile);
+      $('#cdResumeDismiss').text('DISMISS');
     }
     $('#cdResumeDetail').html(detail);
-    $('#cdResumeBtn').prop('disabled', !sameFile);
-    $b.show();
+    $('#cdResumeSteps').html(steps);
+    $b.toggleClass('is-loaded', !!cdResumeLoaded).show();
+  };
+
+  // Called on every status tick: tracks the link and whether a homing cycle has
+  // completed since it came up, and drops the loaded state once the job runs.
+  window.cdResumeTrackStatus = function (connected, running, status) {
+    var rs = (status && status.comms) ? status.comms.runStatus : '';
+    var was = [cdConnected, cdHomedSinceConnect, !!cdResumeLoaded].join();
+    cdConnected = connected;
+    if (!connected) {
+      cdHomedSinceConnect = false;
+      cdHomingSeen = false;
+    } else if (rs === 'Home') {
+      cdHomingSeen = true;
+    } else if (cdHomingSeen && rs === 'Idle') {
+      cdHomedSinceConnect = true;
+      cdHomingSeen = false;
+    }
+    if (running && cdResumeLoaded) cdResumeLoaded = null;
+    if ([cdConnected, cdHomedSinceConnect, !!cdResumeLoaded].join() !== was) cdRefreshResumeBanner();
   };
 
   function cdEscape(t) {
     return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
-  $('#cdResumeDismiss').on('click', function () { window.cdClearInterruptedPlot(); });
+  $('#cdResumeDismiss').on('click', function () {
+    if (!cdResumeLoaded) { window.cdClearInterruptedPlot(); return; }
+    // UNDO: the full file back in the editor, and the interruption back on offer.
+    var l = cdResumeLoaded;
+    cdResumeLoaded = null;
+    cdSetEditorGcode(l.original);
+    localStorage.setItem(CD_RESUME_LS, JSON.stringify(l.rec));
+    cdRefreshResumeBanner();
+  });
 
   $('#cdResumeBtn').on('click', function () {
     var rec = cdReadInterruptedPlot();
     if (!rec) return;
-    window.cdClearInterruptedPlot();
-    startFromHere(Math.max(1, rec.line - CD_RESUME_OVERLAP_LINES));
+    var start = cdResumeStartFor(rec);
+    var original = editor.getValue();
+    var total = editor.session.getLength();
+    var g = cdBuildResumeGcode(start, rec.file);
+    localStorage.removeItem(CD_RESUME_LS);
+    cdResumeLoaded = { rec: rec, original: original, from: start + 1, total: total };
+    cdSetEditorGcode(g);
+    cdRefreshResumeBanner();
   });
 
   cdRefreshResumeBanner();
@@ -1052,6 +1162,7 @@ $(document).ready(function () {
     } else if (connected && !alarm) {
       _cdJobWasLive = false;
     }
+    cdResumeTrackStatus(connected, running, status);
 
     $('#cdConnDot').toggleClass('cd-connected', connected);
     $('#cdConnLabel').toggleClass('cd-connected', connected);
