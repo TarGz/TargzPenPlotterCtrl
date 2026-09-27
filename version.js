@@ -2,6 +2,17 @@ module.exports = {
   version: require('./package.json').version,
   CHANGELOG: [
     {
+      date: '2026-09-27',
+      version: '1.31.0',
+      changes: [
+        'Layer plots copy the source G-code instead of rebuilding it. A layer is the file with the unselected blocks cut out, each block running from pen-up to the end of its drawing: pen-up, travel, pump dip, dwell, pen-down and drawing lines exactly as the file has them. Pen heights, dips and feeds are now the same for a layer as for the whole file; the layer plot no longer reads the jog panel heights.',
+        'A stroke that starts where the previous one ended (a pump dip in the middle of a drawn line) belongs to that stroke\'s block, so selecting either half plots the whole block with its travel.',
+        'The file header goes first and the file\'s own pen-up closes the plot. An F set only in a cut-out block is restated as a bare F line.',
+        'Removed from the layer editor: the PUMP button and menu on the edit bar and the magenta pump marks in the 3D view — the file carries its own dips. strokeFeeds() is gone with the rebuild. Jog panel PEN UP / DOWN / PUMP and the paper frame are unchanged.',
+        'Verified headlessly on a real file: all strokes give the source back line for line; single blocks, half of a split block, a feed set only in a skipped block, and 200 random selections all produce ordered source lines containing every kept stroke. Not yet tested on the machine.'
+      ]
+    },
+    {
       date: '2026-09-26',
       version: '1.30.0',
       changes: [

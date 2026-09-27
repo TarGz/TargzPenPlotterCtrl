@@ -552,9 +552,6 @@ function strokeSetMode(mode) {
     strokeSetTool(strokeTool);
     strokeSetPaintMode(strokePaintMode);
     strokeUpdateStats();
-    strokeRefreshPumpBtn();
-  } else {
-    $('#cd-pump-menu').remove();
   }
   strokeRepaint();
 }
@@ -865,7 +862,6 @@ window.strokeOnGcodeChanged = function () {
   strokeUndoStack = [];
   strokeHover = -1;
   strokeRangeClearMarks();
-  strokePumpMarksClear();
   strokeLayersLoad();
 };
 
@@ -1193,7 +1189,6 @@ function strokeRepaint() {
   if (!object || !object.geometry || !object.geometry.attributes.color) return;
   if (strokeMode === 'edit') strokeApplyColors();
   else strokePaintViewMode();
-  strokePumpMarksBuild();
 }
 
 // View mode: isolate the plot layer if one is armed (everything else painted
@@ -1247,270 +1242,104 @@ function strokePaintViewMode() {
   colors.needsUpdate = true;
 }
 
-// The F each kept stroke was drawn at in the source. Read up to AND including
-// the stroke's first drawing line: that is where generators put the F, and
-// stopping just before it left the rebuilt file with no F at all — Grbl then drew
-// at whatever feed it last had. F is modal whatever the motion, so an F on a G0
-// line counts too. A source with no F anywhere gets none here either.
-function strokeFeeds(keep) {
-  var feeds = [];
-  var f = null;
-  var line = 0;
-  keep.forEach(function (idx) {
-    for (; line <= strokes[idx].lineA; line++) {
-      var m = (editor.session.getLine(line) || '').split(/[;(]/)[0].toUpperCase().match(/F\s*(\d*\.?\d+)/);
-      if (m) f = parseFloat(m[1]);
-    }
-    feeds.push(f);
-  });
-  return feeds;
-}
-
 // Called by runJobFile: the G-code to stream, or null to plot the whole file.
-// Built fresh at plot time so it always uses the current pen heights.
 window.strokePartGcodeIfArmed = function () {
   var pl = strokeLayerById(strokePlotLayerId);
   if (!pl) return null;
   if (!strokeEnsureBuilt()) return null;
-  return strokeBuildGcode(Object.keys(pl.sel).map(Number).sort(function (a, b) { return a - b; }));
+  var src = [];
+  for (var i = 0, n = editor.session.getLength(); i < n; i++) src.push(editor.session.getLine(i));
+  return strokeBuildGcode(Object.keys(pl.sel).map(Number).sort(function (a, b) { return a - b; }),
+    src, object.userData.linePoints);
 };
 
-function strokeBuildGcode(keep) {
-  var lp = object.userData.linePoints;
+function strokeCode(line) {
+  return (line || '').split(/[;(]/)[0].toUpperCase();
+}
 
-  // One reader for the pen heights, shared with the jog buttons. This used to
-  // re-read localStorage with its OWN fallbacks of 5 and 0, so on a profile that
-  // had never set them the jog panel moved to -15 / -29 while a layer plot went
-  // to 5 / 0 — two copies of a default is exactly how plotting and jogging end
-  // up meaning different heights.
-  var pens = (typeof cdReadPenHeights === 'function')
-    ? cdReadPenHeights()
-    : { up: -15, down: -29, pump: -35 };
-
-  var firstLine = strokes[keep[0]].lineA + 1;
-  var state = (typeof scanModalState === 'function') ? scanModalState(firstLine) : null;
-
-  var g = '';
-  g += '; === SELECTION - ' + keep.length + ' of ' + strokes.length + ' strokes ===\n';
-  g += '; Generated: ' + new Date().toISOString() + '\n';
-  g += '; Coordinates are unchanged from the source file so this registers\n';
-  g += '; with what is already drawn. Do NOT re-zero before running.\n\n';
-
-  if (state) {
-    g += state.units + '\n';
-    g += 'G90\n';
-    g += state.wcs + '\n';
-    g += state.plane + '\n';
-    if (state.feedRateMode) g += state.feedRateMode + '\n';
-  } else {
-    g += 'G21\nG90\n';
-  }
-
-  var feeds = strokeFeeds(keep);
-
-  // This generator does not filter the source file, it rebuilds one from the
-  // stroke geometry — so anything the source did between strokes, a priming dip
-  // included, exists here only if it is emitted deliberately. The mode comes
-  // from the PUMP control on the edit bar.
-  var pump = (typeof cdReadPump === 'function') ? cdReadPump() : { mode: 'off' };
-  var pumped = strokePumpPlan(keep);
-  if (pump.mode !== 'off') {
-    g += '; Pump: Z' + pump.z + ' — ' +
-      (pump.mode === 'line' ? 'every stroke' : 'every ' + pump.distance + 'mm drawn') +
-      ', ' + pump.dwell + 'ms dwell\n';
-  }
-
-  keep.forEach(function (idx, n) {
-    var s = strokes[idx];
-    var p0 = lp[s.a];
-    g += '\n; --- stroke ' + idx + ' (lines ' + (s.lineA + 1) + '-' + (s.lineB + 1) + ') ---\n';
-    g += 'G0 Z' + pens.up + '\n';
-    g += 'G0 X' + (p0.x).toFixed(3) + ' Y' + (p0.y).toFixed(3) + '\n';
-    // Dip below drawing height at the stroke's own start, then rise to draw, so
-    // nothing is dragged across the sheet on the way to the dip.
-    if (pumped[n]) {
-      g += 'G0 Z' + pump.z + '\n';
-      // Without this the dip reverses on the very next line and the pen never
-      // physically settles at depth — the plot primes less than the button does.
-      if (pump.dwell > 0) g += 'G4 P' + (pump.dwell / 1000).toFixed(3) + '\n';
-    }
-    var feed = feeds[n];
-    g += 'G1 Z' + pens.down + (feed ? ' F' + feed : '') + '\n';
-    for (var i = s.a + 1; i <= s.b; i++) {
-      var p = lp[i];
-      g += 'G1 X' + p.x.toFixed(3) + ' Y' + p.y.toFixed(3) + (feed ? ' F' + feed : '') + '\n';
+// Blocks of the source, each running from the line after the previous block's
+// last drawing line to its own last drawing line: pen-up, travel, priming and
+// pen-down included, whatever form they take in this file. A stroke that starts
+// where the previous one ended has no travel of its own — a mid-stroke pump dip
+// splits it — so it joins that stroke's block rather than starting one.
+function strokeBlocks(lp) {
+  var EPS = 1e-4;
+  var blocks = [];
+  var cur = null;
+  strokes.forEach(function (s, k) {
+    var prev = k ? strokes[k - 1] : null;
+    var joined = prev && Math.hypot(lp[s.a].x - lp[prev.b].x, lp[s.a].y - lp[prev.b].y) < EPS;
+    if (joined) {
+      cur.last = k;
+      cur.to = s.lineB;
+    } else {
+      cur = { first: k, last: k, from: prev ? prev.lineB + 1 : 0, to: s.lineB };
+      blocks.push(cur);
     }
   });
+  return blocks;
+}
 
-  g += '\n; --- done ---\nG0 Z' + pens.up + '\n';
+// A layer is the source file with the unselected blocks cut out: every line
+// streamed is a line of the file, so the pen heights, dips, dwells and feeds are
+// exactly what plotting the whole file would use. Nothing here reads the jog
+// panel's pen heights.
+function strokeBuildGcode(keep, src, lp) {
+  var sel = {};
+  keep.forEach(function (idx) { sel[idx] = true; });
+  var blocks = strokeBlocks(lp).filter(function (b) {
+    for (var k = b.first; k <= b.last; k++) if (sel[k]) return true;
+    return false;
+  });
+  if (!blocks.length) return null;
+
+  // F is modal and a cut-out block may be the one that set it, so track the F
+  // in force at each block start and restate it when the machine would differ.
+  var fAt = null;
+  var scanned = 0;
+  function feedBefore(line) {
+    for (; scanned < line; scanned++) {
+      var m = strokeCode(src[scanned]).match(/F\s*(\d*\.?\d+)/);
+      if (m) fAt = m[1];
+    }
+    return fAt;
+  }
+
+  var head = 0;
+  while (head < blocks[0].from && head < src.length &&
+    !/\bG0*[0-3]\b|^\s*[XYZ]/.test(strokeCode(src[head]))) head++;
+  if (blocks[0].from === 0) head = 0;
+
+  var g = '';
+  g += '; === SELECTION - ' + keep.length + ' of ' + strokes.length + ' strokes, ' +
+    blocks.length + ' blocks ===\n';
+  g += '; Generated: ' + new Date().toISOString() + '\n';
+  g += '; Lines are copied from the source file. Coordinates are unchanged so this\n';
+  g += '; registers with what is already drawn. Do NOT re-zero before running.\n';
+  src.slice(0, head).forEach(function (l) { g += l + '\n'; });
+
+  var machineF = feedBefore(head);
+  var lastTo = -1;
+  blocks.forEach(function (b) {
+    var from = Math.max(b.from, head);
+    var f = feedBefore(from);
+    g += '\n; --- source lines ' + (from + 1) + '-' + (b.to + 1) + ' ---\n';
+    if (f !== null && f !== machineF) g += 'F' + f + '\n';
+    for (var i = from; i <= b.to; i++) g += src[i] + '\n';
+    machineF = feedBefore(b.to + 1);
+    lastTo = b.to;
+  });
+
+  // The pen is still down after the last block. Lift it the way the file does:
+  // what follows up to the next XY move, or the file's own ending.
+  g += '\n; --- lift ---\n';
+  for (var j = lastTo + 1; j < src.length; j++) {
+    if (/[XY]\s*[-+.\d]/.test(strokeCode(src[j]))) break;
+    g += src[j] + '\n';
+  }
   return g;
 }
 
-// ── Pump mode ──────────────────────────────────────────────────────────────
-//
-// Lives on the edit bar, not in Settings: it belongs to the layer you are about
-// to plot, and the depth it dips to is the PUMP height the jog panel already
-// owns. Three modes only — anything finer is the generator's job upstream.
-
-var STROKE_PUMP_MODES = [
-  { id: 'off',  label: 'Pen up / down',    hint: 'No priming dip. What a pen that feeds itself wants.' },
-  { id: 'line', label: 'Pump per line',    hint: 'A dip at the start of every stroke.' },
-  { id: 'dist', label: 'Pump per distance', hint: 'A dip once the drawn length passes the interval.' }
-];
-
-// Which of `keep` get a dip. ONE owner for the rule: the generator emits from
-// it and the preview draws from it, so the picture cannot drift from the plot.
-// Per line is every stroke; per distance fires once the drawn length since the
-// last dip runs past the interval. Either way the first stroke pumps — a layer
-// starts with whatever the pen was left holding.
-function strokePumpPlan(keep) {
-  var pump = (typeof cdReadPump === 'function') ? cdReadPump() : { mode: 'off' };
-  var out = [];
-  var acc = 0;
-  keep.forEach(function (idx, n) {
-    var on = (pump.mode === 'line') ||
-      (pump.mode === 'dist' && (n === 0 || acc >= pump.distance));
-    out.push(on);
-    acc = on ? 0 : acc;
-    acc += strokes[idx] ? strokes[idx].len : 0;
-  });
-  return out;
-}
-
-// The dips do not exist in the file — they are synthesised at plot time — so
-// the preview has to draw its own geometry for them. A child of `object` rather
-// than a scene member, so it inherits the toolpath's scale and dies with it on
-// a re-parse, and so the colour-buffer painters never touch it.
-var strokePumpObj = null;
-
-function strokePumpMarksClear() {
-  if (strokePumpObj) {
-    if (strokePumpObj.parent) strokePumpObj.parent.remove(strokePumpObj);
-    if (strokePumpObj.geometry) strokePumpObj.geometry.dispose();
-    strokePumpObj = null;
-  }
-}
-
-// The set a plot would actually use: the layer being edited, else the one armed
-// for plotting. MAIN streams the source file untouched, so it gets no marks.
-function strokePumpPreviewSet() {
-  var l = strokeLayerById(strokeEditingLayerId) || strokeLayerById(strokePlotLayerId);
-  if (!l) return null;
-  var src = (strokeMode === 'edit' && strokeEditingLayerId === l.id) ? strokeSelection : l.sel;
-  return Object.keys(src).map(Number).sort(function (a, b) { return a - b; });
-}
-
-function strokePumpMarksBuild() {
-  strokePumpMarksClear();
-  if (typeof THREE === 'undefined' || !object || !object.userData || !strokes.length) return;
-  var pump = (typeof cdReadPump === 'function') ? cdReadPump() : { mode: 'off' };
-  if (pump.mode === 'off') return;
-
-  var keep = strokePumpPreviewSet();
-  if (!keep || !keep.length) return;
-
-  var plan = strokePumpPlan(keep);
-  var lp = object.userData.linePoints;
-  var pens = (typeof cdReadPenHeights === 'function')
-    ? cdReadPenHeights() : { down: 0 };
-  // Pen heights are mm; the toolpath is in file units and the object carries the
-  // inch scale, so bring the two Z values into the same space as lp.
-  var zs = object.userData.inch ? (1 / 25.4) : 1;
-
-  // A vertical alone is a dot in the top view, which is the view you are in by
-  // default — so each dip is a vertical PLUS a small cross at its XY, and the
-  // mark reads from any angle.
-  // Sized off the drawing, not a fixed mm: 1.5mm is sub-pixel on a 280mm sheet
-  // at fit-zoom. World-space, so it grows as you zoom in, like the toolpath.
-  var bb = object.userData.bbbox2;
-  var span = bb ? Math.max(bb.max.x - bb.min.x, bb.max.y - bb.min.y) : 100;
-  var arm = Math.max(1 * zs, span * 0.01);
-  var pos = [];
-  keep.forEach(function (idx, n) {
-    if (!plan[n]) return;
-    var p0 = lp[strokes[idx].a];
-    if (!p0) return;
-    var zd = pens.down * zs;
-    pos.push(p0.x, p0.y, zd, p0.x, p0.y, pump.z * zs);
-    pos.push(p0.x - arm, p0.y, zd, p0.x + arm, p0.y, zd);
-    pos.push(p0.x, p0.y - arm, zd, p0.x, p0.y + arm, zd);
-  });
-  if (!pos.length) return;
-
-  var geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  // Magenta deliberately: STROKE_LAYER_COLORS contains an amber, so an amber
-  // mark vanished into whichever layer happened to be drawn in it.
-  strokePumpObj = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0xFF2D95 }));
-  strokePumpObj.name = 'pumpmarks';
-  object.add(strokePumpObj);
-}
-
-function strokePumpLabel() {
-  var p = (typeof cdReadPump === 'function') ? cdReadPump() : { mode: 'off' };
-  if (p.mode === 'line') return 'PUMP: PER LINE';
-  if (p.mode === 'dist') return 'PUMP: ' + p.distance + 'MM';
-  return 'PUMP: OFF';
-}
-
-function strokeRefreshPumpBtn() {
-  $('#cdStrokePumpBtn').text(strokePumpLabel())
-    .toggleClass('is-on', (typeof cdReadPump === 'function') && cdReadPump().mode !== 'off');
-}
-
-function strokePumpMenu(anchor) {
-  $('#cd-pump-menu').remove();
-  var cur = cdReadPump();
-  var html = '<div id="cd-pump-menu" class="cd-pump-menu">';
-  STROKE_PUMP_MODES.forEach(function (m) {
-    html += '<button type="button" data-mode="' + m.id + '"' + (cur.mode === m.id ? ' class="is-on"' : '') + '>' +
-      '<span class="cd-pump-label">' + m.label + '</span>' +
-      '<span class="cd-pump-hint">' + m.hint + '</span></button>';
-  });
-  html += '<div class="cd-pump-dist"><label for="cdPumpDistance">every</label>' +
-    '<input id="cdPumpDistance" type="number" min="1" step="10" value="' + cur.distance + '">' +
-    '<span>mm drawn</span></div>';
-  // Always shown: it is also the dwell the jog panel's PUMP button uses, so it
-  // is not specific to a mode.
-  html += '<div class="cd-pump-row"><label for="cdPumpDwell">hold</label>' +
-    '<input id="cdPumpDwell" type="number" min="0" step="50" value="' + cur.dwell + '">' +
-    '<span>ms at depth</span></div>';
-  html += '</div>';
-
-  var $pop = $(html).appendTo('#tab-three');
-  var pr = anchor.getBoundingClientRect();
-  var wr = document.getElementById('tab-three').getBoundingClientRect();
-  $pop.css({ bottom: (wr.bottom - pr.top + 6) + 'px', left: (pr.left - wr.left) + 'px' });
-  $pop.toggleClass('has-dist', cur.mode === 'dist');
-
-  $pop.on('click', 'button', function (e) {
-    e.stopPropagation();
-    localStorage.setItem('pumpMode', $(this).data('mode'));
-    $pop.find('button').removeClass('is-on');
-    $(this).addClass('is-on');
-    $pop.toggleClass('has-dist', $(this).data('mode') === 'dist');
-    strokeRefreshPumpBtn();
-    strokeRepaint();
-  });
-  $pop.on('click', '.cd-pump-dist, .cd-pump-row', function (e) { e.stopPropagation(); });
-  $pop.on('change input', '#cdPumpDwell', function () {
-    var v = parseFloat($(this).val());
-    if (isNaN(v) || v < 0) return;
-    localStorage.setItem('pumpDwell', v);
-  });
-  $pop.on('change input', '#cdPumpDistance', function () {
-    var v = parseFloat($(this).val());
-    if (isNaN(v) || v <= 0) return;
-    localStorage.setItem('pumpDistance', v);
-    strokeRefreshPumpBtn();
-    strokeRepaint();
-  });
-  $pop.on('keydown', 'input', function (e) { e.stopPropagation(); if (e.which === 13) $pop.remove(); });
-
-  setTimeout(function () {
-    $(document).one('click', function () { $('#cd-pump-menu').remove(); });
-  }, 0);
-}
 
 // ── Wiring ─────────────────────────────────────────────────────────────────
 
@@ -1584,10 +1413,6 @@ $(document).ready(function () {
     $('#cd-layer-panel').hide();
   });
   $('#cdStrokeDone').on('click', strokeLayerEditDone);
-  $('#cdStrokePumpBtn').on('click', function (e) {
-    e.stopPropagation();
-    strokePumpMenu(this);
-  });
 
   // Layer list: the row arms the layer for plotting, EDIT opens it, ⋯ renames / deletes.
   $('#cd-layer-list').on('click', '.cd-layer-row', function (e) {
