@@ -3,6 +3,13 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-11-24',
+      version: '1.33.4',
+      changes: [
+        'app/icon.png, build/icon.png and build/icon.icns rebuilt with transparent corners. The design-system pipeline rendered them with qlmanage, which drops the alpha channel, so all three carried opaque white outside the squircle — and app/icon.png is the one handed to BrowserWindow and the tray at runtime, where macOS shows it exactly as given and the white square stayed visible. Rebuilt from app/icon.svg with targz-design-system/tools/build-app-icons.sh; the art is unchanged. build/icons/*.png were already transparent and were left alone.',
+      ]
+    },
+    {
+      date: '2026-11-24',
       version: '1.33.3',
       changes: [
         'The icon gets its corner back. Going full bleed for the macOS 26 white border took the squircle with it, and the squircle was never the problem: what the system puts a white plate behind is the MARGIN, the band of nothing a 100px inset leaves around the art. The inset stays gone, and so do the drop shadow and the white rim, but the corner is drawn again at rx=229 — 22.37% of 1024, the radius macOS masks with, at canvas size instead of on an 824 box.',
