@@ -2,6 +2,14 @@ module.exports = {
   version: require('./package.json').version,
   CHANGELOG: [
     {
+      date: '2026-11-24',
+      version: '1.33.0',
+      changes: [
+        'A new app icon, and it is the tool rather than its output. The old one was a bank of three faders inherited from OpenBuilds CONTROL, which describes a mixer; a field of strokes was tried next and is what ANY drawing machine leaves. What this machine holds is a marker — barrel, collar, nib, with air between the parts — and a marker and not a pen because the PUMP dips BELOW pen-down to re-prime, which is something only an ink-fed tip needs.',
+        'It is built from `app/icon.svg`, which is new: the PNG and the .icns are generated from it and are not edited by hand. The plate — the squircle, the diagonal ramp, the drop shadow and the white rim at a fifth — is shared with the other two Targz apps and is written down in targz-design-system/docs/APP-ICONS.md. The colour is shared too: three apps on three steps of one warm hue read as three near-misses of the same colour at dock size, so they take one plate and the drawing does the telling apart.',
+      ]
+    },
+    {
       date: '2026-09-27',
       version: '1.32.0',
       changes: [
