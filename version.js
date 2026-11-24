@@ -3,6 +3,13 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-11-24',
+      version: '1.33.2',
+      changes: [
+        'The icon is full bleed, which fixes the white border macOS 26 draws around it. It carried a 100px inset, its own squircle, its own drop shadow and a white rim — all four of which the system now supplies itself, so the dock showed a smaller icon sitting on a white plate macOS had put behind it. The colour runs edge to edge across the whole 1024 and the marker tip is scaled by 1024/824 about the centre, keeping the size it had against the plate it used to sit in. On an older macOS the same file renders as a square tile, because there is nothing there to round it.',
+      ]
+    },
+    {
+      date: '2026-11-24',
       version: '1.33.1',
       changes: [
         'A menu-bar glyph, in `app/tray.svg` and `app/tray.png`. Nothing builds a Tray yet, so nothing loads it — it is the drawing, waiting for the code. It is the marker tip redrawn for 36 pixels rather than reduced to them: all three parts stay, but the gaps between barrel, collar and nib are opened, because at that size the icon\'s own gaps land under a pixel and the tip comes out as one tapering blob. Black with alpha and nothing else, since macOS treats a menu-bar image as a template and inverts it for the dark bar.',
