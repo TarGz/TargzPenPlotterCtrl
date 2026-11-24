@@ -3,6 +3,13 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-11-24',
+      version: '1.33.3',
+      changes: [
+        'The icon gets its corner back. Going full bleed for the macOS 26 white border took the squircle with it, and the squircle was never the problem: what the system puts a white plate behind is the MARGIN, the band of nothing a 100px inset leaves around the art. The inset stays gone, and so do the drop shadow and the white rim, but the corner is drawn again at rx=229 — 22.37% of 1024, the radius macOS masks with, at canvas size instead of on an 824 box.',
+      ]
+    },
+    {
+      date: '2026-11-24',
       version: '1.33.2',
       changes: [
         'The icon is full bleed, which fixes the white border macOS 26 draws around it. It carried a 100px inset, its own squircle, its own drop shadow and a white rim — all four of which the system now supplies itself, so the dock showed a smaller icon sitting on a white plate macOS had put behind it. The colour runs edge to edge across the whole 1024 and the marker tip is scaled by 1024/824 about the centre, keeping the size it had against the plate it used to sit in. On an older macOS the same file renders as a square tile, because there is nothing there to round it.',
