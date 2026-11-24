@@ -3,6 +3,13 @@ module.exports = {
   CHANGELOG: [
     {
       date: '2026-11-24',
+      version: '1.33.1',
+      changes: [
+        'A menu-bar glyph, in `app/tray.svg` and `app/tray.png`. Nothing builds a Tray yet, so nothing loads it — it is the drawing, waiting for the code. It is the marker tip redrawn for 36 pixels rather than reduced to them: all three parts stay, but the gaps between barrel, collar and nib are opened, because at that size the icon\'s own gaps land under a pixel and the tip comes out as one tapering blob. Black with alpha and nothing else, since macOS treats a menu-bar image as a template and inverts it for the dark bar.',
+      ]
+    },
+    {
+      date: '2026-11-24',
       version: '1.33.0',
       changes: [
         'A new app icon, and it is the tool rather than its output. The old one was a bank of three faders inherited from OpenBuilds CONTROL, which describes a mixer; a field of strokes was tried next and is what ANY drawing machine leaves. What this machine holds is a marker — barrel, collar, nib, with air between the parts — and a marker and not a pen because the PUMP dips BELOW pen-down to re-prime, which is something only an ink-fed tip needs.',
